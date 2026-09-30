@@ -72,6 +72,7 @@ function hash01(n) {
 }
 const AR_D = '٠١٢٣٤٥٦٧٨٩';
 const ar = (n) => String(n == null ? '' : n).replace(/[0-9]/g, (d) => AR_D[+d]);
+const isTouchDevice = () => (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
 const escapeHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[c]));
@@ -233,6 +234,24 @@ class InputManager {
       el.addEventListener('pointercancel', () => this.game.setPedal(which, false));
     };
     holdPedal('btnGas', 'gas'); holdPedal('btnBrake', 'brake');
+    holdPedal('btnUp', 'gas'); holdPedal('btnDown', 'brake');
+    // mobile d-pad: hold to keep shifting lanes
+    const repeat = (id, fn) => {
+      const el = $(id);
+      if (!el) return;
+      let t = 0;
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault(); fn();
+        if (t) clearInterval(t);
+        t = setInterval(fn, 170);
+      });
+      const end = () => { if (t) { clearInterval(t); t = 0; } };
+      el.addEventListener('pointerup', end);
+      el.addEventListener('pointerleave', end);
+      el.addEventListener('pointercancel', end);
+    };
+    repeat('btnL', () => this.game.requestMove(-1));
+    repeat('btnR', () => this.game.requestMove(1));
     // joystick: sideways notches shift lanes, up = gas, down = brake
     const base = $('joyBase'), knob = $('joyKnob');
     if (base && knob) {
@@ -1104,7 +1123,10 @@ class Game {
     this.player.y = this.H - CFG.playerY;
     $('lobby').classList.add('hidden'); $('gameover').classList.add('hidden');
     $('hud').classList.remove('hidden'); $('liveTag').classList.remove('hidden');
-    $('touchControls').classList.remove('hidden'); // joystick deck on all screens
+    // mobile gets big buttons, desktop keeps the joystick deck
+    const touch = isTouchDevice();
+    $('touchControls').classList.toggle('hidden', touch);
+    $('dpad').classList.toggle('hidden', !touch);
     this.bigMsg('استعد…');
   }
   toLobby() {
@@ -1113,7 +1135,7 @@ class Game {
     this.net.leaveRace();
     this.player = null;
     $('gameover').classList.add('hidden'); $('lobby').classList.remove('hidden');
-    $('hud').classList.add('hidden'); $('touchControls').classList.add('hidden');
+    $('hud').classList.add('hidden'); $('touchControls').classList.add('hidden'); $('dpad').classList.add('hidden');
     $('lobbyBest').textContent = ar(this.best);
   }
   crash() {
@@ -1156,7 +1178,7 @@ class Game {
     $('overKicker').textContent = 'خبطت يا معلم…';
     $('overTitle').textContent = isRec ? 'رقم جديد! عاش!' : (s > 1500 ? 'سواقة معلمين!' : 'المرة الجاية أحسن!');
     $('gameover').classList.remove('hidden');
-    $('touchControls').classList.add('hidden');
+    $('touchControls').classList.add('hidden'); $('dpad').classList.add('hidden');
     this.net.leaveRace();
     this.net.submitScore(p.score, p.dist).then(() => UI.refreshBoards()).catch(() => {});
   }
@@ -1310,6 +1332,8 @@ class Game {
       $('hudRank').textContent = '#' + ar(this.liveRank());
       const sf = $('speedFill');
       if (sf) sf.style.width = (clamp((this.speed - 110) / (1450 - 110), 0, 1) * 100).toFixed(1) + '%';
+      const sfm = $('speedFillM');
+      if (sfm) sfm.style.width = (clamp((this.speed - 110) / (1450 - 110), 0, 1) * 100).toFixed(1) + '%';
     } else if (this.state === 'over-anim') {
       const p = this.player;
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.4);

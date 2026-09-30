@@ -154,6 +154,21 @@ body{
 #speedWrap{flex:1; height:14px; min-width:0; background:var(--paper); border:3px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:2px 2px 0 var(--ink)}
 #speedFill{height:100%; width:0%; background:linear-gradient(90deg, var(--teal), var(--taxi), var(--terra))}
 
+/* ---------- زراير الموبايل (قدام/شمال/يمين/فرامل) ---------- */
+#dpad{position:absolute; bottom:10px; left:0; right:0; display:flex; flex-direction:column; align-items:center; gap:6px; z-index:6}
+#dpad.hidden{display:none}
+#dpad button{
+  width:70px; height:58px; font-size:22px; cursor:pointer; color:var(--ink);
+  background:rgba(246,236,212,.94); border:3px solid var(--ink);
+  box-shadow:3px 4px 0 var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
+  touch-action:none; user-select:none; -webkit-user-select:none;
+}
+#dpad button:active{transform:translate(2px,3px); box-shadow:none}
+#btnUp{border-radius:50% 50% 20% 20%/40% 40% 20% 20%; background:rgba(233,180,76,.94)}
+.dpad-row{display:flex; gap:8px}
+#speedWrapM{width:72%; height:12px; background:var(--paper); border:3px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:2px 2px 0 var(--ink)}
+#speedFillM{height:100%; width:0%; background:linear-gradient(90deg, var(--teal), var(--taxi), var(--terra))}
+
 /* ---------- أوفرلاي ---------- */
 .overlay{position:absolute; inset:0; z-index:10; display:flex; align-items:flex-start; justify-content:center; padding:12px; overflow-y:auto; background:rgba(42,32,24,.28)}
 .overlay.hidden{display:none}
