@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='28' width='84' height='44' rx='14' fill='%232e7ab8' stroke='%232a2018' stroke-width='6'/><circle cx='28' cy='72' r='12' fill='%232a2018'/><circle cx='72' cy='72' r='12' fill='%232a2018'/></svg>">
 </head>
 <body>
@@ -73,6 +73,11 @@
           <input id="steer" type="range" min="0" max="3" step="1" value="1" aria-label="حرّك العربية يمين وشمال">
           <button id="btnRight" aria-label="يمين">▶<small>يمين</small></button>
         </div>
+        <div id="pedals" class="hidden">
+          <button id="btnBrake" aria-label="فرامل">▼<small>فرامل</small></button>
+          <div id="speedWrap" aria-hidden="true"><div id="speedFill"></div></div>
+          <button id="btnGas" aria-label="بنزين">▲<small>بنزين</small></button>
+        </div>
 
         <!-- ====== اللوبي ====== -->
         <div id="lobby" class="overlay">
@@ -102,7 +107,7 @@
             </div>
 
             <button id="btnPlay" class="btn-yalla">يلا بينا ←</button>
-            <p class="hint">← → أو A / D للسواقة • على الموبايل اسحب المؤشر أو دوس الزراير</p>
+            <p class="hint">← → سواقة • ↑ ↓ بنزين وفرامل • على الموبايل المؤشر والدواسات تحت</p>
 
             <div class="lobby-row">
               <div class="online-box">
@@ -159,7 +164,7 @@
 
       </div>
     </div>
-    <p class="under-note">جمراوي <b id="appVer">v9</b> — معمولة بحب في مصر • <span id="connState">بيحاول يتصل…</span></p>
+    <p class="under-note">جمراوي <b id="appVer">v10</b> — معمولة بحب في مصر • <span id="connState">بيحاول يتصل…</span></p>
   </main>
 </div>
 
@@ -167,6 +172,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="script.js?v=9"></script>
+<script src="script.js?v=10"></script>
 </body>
 </html>

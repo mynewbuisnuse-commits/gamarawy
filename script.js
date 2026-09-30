@@ -28,7 +28,7 @@ const CFG = {
   canvasW: 480,
   canvasHMin: 700,
   canvasHMax: 900,
-  playerY: 170,          // distance from bottom
+  playerY: 186,          // distance from bottom
   baseSpeed: 255,        // px/s world scroll at t=0
   maxExtraSpeed: 265,    // added over ~75s
   rampTime: 75,
@@ -38,6 +38,10 @@ const CFG = {
   nearScore: 100,
   overScore: 25,
   laneCooldown: 0.14,    // s between lane changes
+  gasBoost: 0.45,        // gas pedal adds up to +45% over cruise
+  brakeCut: 0.55,        // brake pedal cuts down to 45% of cruise
+  accelUp: 1.8,          // how fast speed rises toward target
+  accelDown: 3.5,        // brakes bite harder than the engine pulls
   invulnTime: 1.2,
   netThrottle: 120,      // ms
   remoteTimeout: 6000,
@@ -181,6 +185,11 @@ class InputManager {
     this.game = game;
     this._cool = 0;
     window.addEventListener('keydown', (e) => this._onKey(e));
+    window.addEventListener('keyup', (e) => {
+      const k = e.key;
+      if (k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ص') this.game.setPedal('gas', false);
+      if (k === 'ArrowDown' || k === 's' || k === 'S' || k === 'س') this.game.setPedal('brake', false);
+    });
     this._bindTouch();
     this._bindButtons();
   }
@@ -192,6 +201,8 @@ class InputManager {
   _onKey(e) {
     if (this._isTyping()) return; // don't hijack nickname field
     const k = e.key;
+    if (k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ص') { e.preventDefault(); this.game.setPedal('gas', true); return; }
+    if (k === 'ArrowDown' || k === 's' || k === 'S' || k === 'س') { e.preventDefault(); this.game.setPedal('brake', true); return; }
     let dir = 0;
     if (k === 'ArrowLeft' || k === 'a' || k === 'A' || k === 'ش') dir = -1;
     else if (k === 'ArrowRight' || k === 'd' || k === 'D' || k === 'ي') dir = 1;
@@ -222,6 +233,15 @@ class InputManager {
     bind('btnLeft', -1); bind('btnRight', 1);
     const steer = $('steer');
     if (steer) steer.addEventListener('input', () => this.game.requestLane(+steer.value));
+    const holdPedal = (id, which) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.setPedal(which, true); });
+      el.addEventListener('pointerup', (e) => { e.preventDefault(); this.game.setPedal(which, false); });
+      el.addEventListener('pointerleave', () => this.game.setPedal(which, false));
+      el.addEventListener('pointercancel', () => this.game.setPedal(which, false));
+    };
+    holdPedal('btnGas', 'gas'); holdPedal('btnBrake', 'brake');
   }
 }
 
@@ -593,6 +613,7 @@ class Player {
     this.combo = 0; this.comboT = 0;
     this.color = color; this.seed = randi(1, 99999);
     this.style = playerStyle(color, this.seed);
+    this.throttle = 0; // -1 brake .. +1 gas
     this.invuln = CFG.invulnTime;
     this.moveCool = 0;
   }
@@ -1002,6 +1023,10 @@ class Game {
     const t = clamp(i - l0, 0, 1);
     return lerp(this.laneCenters[l0], this.laneCenters[l1], t);
   }
+  setPedal(which, on) {
+    if (which === 'gas') this.pedalGas = on; else this.pedalBrake = on;
+    if (this.player) this.player.throttle = (this.pedalGas ? 1 : 0) + (this.pedalBrake ? -1 : 0);
+  }
   requestMove(dir) {
     if (this.state !== 'racing' || !this.player || this.paused) return;
     if (this.player.tryMove(dir)) {
@@ -1029,13 +1054,15 @@ class Game {
     Store.set('gamarawy_car', this.carColor);
     this.net.setIdentity(this.name, this.carColor);
     this.state = 'racing';
-    this.scroll = 0; this.elapsed = 0; this.shake = 0;
+    this.scroll = 0; this.elapsed = 0; this.shake = 0; this.speed = 0;
+    this.pedalGas = false; this.pedalBrake = false;
     this.traffic.reset(); this.coins.reset(); this.parts.clear();
     this.player = new Player(this.carColor, this.laneCenters[1]);
     this.player.y = this.H - CFG.playerY;
     $('lobby').classList.add('hidden'); $('gameover').classList.add('hidden');
     $('hud').classList.remove('hidden'); $('liveTag').classList.remove('hidden');
     $('touchControls').classList.remove('hidden'); // slider + buttons on all screens
+    $('pedals').classList.remove('hidden');
     this._syncSteer();
     this.bigMsg('السباق بدأ!');
   }
@@ -1045,7 +1072,7 @@ class Game {
     this.net.leaveRace();
     this.player = null;
     $('gameover').classList.add('hidden'); $('lobby').classList.remove('hidden');
-    $('hud').classList.add('hidden'); $('touchControls').classList.add('hidden');
+    $('hud').classList.add('hidden'); $('touchControls').classList.add('hidden'); $('pedals').classList.add('hidden');
     $('lobbyBest').textContent = ar(this.best);
   }
   crash() {
@@ -1075,7 +1102,7 @@ class Game {
     $('overKicker').textContent = 'خبطت يا معلم…';
     $('overTitle').textContent = isRec ? 'رقم جديد! عاش!' : (s > 1500 ? 'سواقة معلمين!' : 'المرة الجاية أحسن!');
     $('gameover').classList.remove('hidden');
-    $('touchControls').classList.add('hidden');
+    $('touchControls').classList.add('hidden'); $('pedals').classList.add('hidden');
     this.net.leaveRace();
     this.net.submitScore(p.score, p.dist).then(() => UI.refreshBoards()).catch(() => {});
   }
@@ -1133,7 +1160,11 @@ class Game {
     if (this.state === 'racing' && this.player) {
       const p = this.player;
       this.elapsed += dt;
-      this.speed = this.speedNow();
+      // cruise speed ramps up; pedals ease actual speed toward a target
+      const cruise = this.speedNow();
+      const thr = p.throttle || 0;
+      const target = cruise * (thr >= 0 ? 1 + CFG.gasBoost * thr : 1 - CFG.brakeCut * -thr);
+      this.speed = lerp(this.speed, target, damp(target > this.speed ? CFG.accelUp : CFG.accelDown, dt));
       this.scroll += this.speed * dt;
       this.audio.engineSpeed(this.speed);
       if (p.moveCool > 0) p.moveCool -= dt;
@@ -1199,6 +1230,8 @@ class Game {
       $('hudScore').textContent = ar(Math.floor(p.score));
       $('hudDist').textContent = ar(Math.floor(p.dist)) + ' م';
       $('hudRank').textContent = '#' + ar(this.liveRank());
+      const sf = $('speedFill');
+      if (sf) sf.style.width = (clamp((this.speed - 110) / (760 - 110), 0, 1) * 100).toFixed(1) + '%';
     } else if (this.state === 'over-anim') {
       this.overTimer -= dt;
       this.scroll += this.speed * dt * 0.3;
