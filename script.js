@@ -470,31 +470,44 @@ function drawCar(ctx, o) {
     ctx.fillStyle = '#f6ecd4'; ctx.font = font; ctx.textAlign = 'center';
     ctx.fillText(txt, 0, 0); ctx.restore();
   };
-  // --- ground shadow: soft + hard offset for ink feel
+  // --- ground shadow: layered soft (lift) + hard ink offset
+  ctx.fillStyle = 'rgba(30,23,16,.14)';
+  ctx.beginPath(); ctx.ellipse(5, h / 2 + 5, w / 2 + 8, 11, 0, 0, 6.2832); ctx.fill();
   ctx.fillStyle = 'rgba(30,23,16,.22)';
   ctx.beginPath(); ctx.ellipse(4, h / 2 + 3, w / 2 + 4, 9, 0, 0, 6.2832); ctx.fill();
   ctx.fillStyle = 'rgba(30,23,16,.30)';
   ctx.beginPath(); ctx.ellipse(1, h / 2 - 1, w / 2, 6, 0, 0, 6.2832); ctx.fill();
 
-  // --- wheels with hubcaps
+  // --- wheels: 3D tire + hub + lugs, with arch shadows
   const wy = h * 0.18;
   const spin = (o.spin || 0) % 6.2832;
   for (let s = -1; s <= 1; s += 2) {
     for (const yy of [wy, -wy]) {
       const wx = s * (w / 2 + 1);
+      // arch shadow carved into body
+      ctx.fillStyle = 'rgba(20,14,10,.45)';
+      ctx.beginPath(); ctx.ellipse(wx - s * 2, yy, 8.5, 15, 0, 0, 6.2832); ctx.fill();
       ctx.save(); ctx.translate(wx, yy);
-      ctx.fillStyle = '#241c12';
+      const tg = ctx.createLinearGradient(-7, 0, 7, 0);
+      tg.addColorStop(0, '#0f0c08'); tg.addColorStop(0.45, '#2c241a');
+      tg.addColorStop(0.62, '#3d3325'); tg.addColorStop(1, '#0f0c08');
+      ctx.fillStyle = tg;
       ctx.beginPath(); ctx.ellipse(0, 0, 7.5, 13, 0, 0, 6.2832); ctx.fill();
       setInk(ctx, 2); ctx.stroke();
-      // hubcap
-      ctx.fillStyle = '#c9bfae';
-      ctx.beginPath(); ctx.ellipse(0, 0, 3.4, 6, 0, 0, 6.2832); ctx.fill();
+      // hubcap with depth
+      const hg = ctx.createLinearGradient(-3, -6, 3, 6);
+      hg.addColorStop(0, '#efe7d6'); hg.addColorStop(0.55, '#c9bfae'); hg.addColorStop(1, '#8f8574');
+      ctx.fillStyle = hg;
+      ctx.beginPath(); ctx.ellipse(0, 0, 3.6, 6.2, 0, 0, 6.2832); ctx.fill();
       ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 1.4; ctx.stroke();
-      // spoke hint rotates with speed
-      ctx.strokeStyle = 'rgba(42,32,24,.7)'; ctx.lineWidth = 1.4;
-      ctx.beginPath();
-      ctx.moveTo(0, -5); ctx.lineTo(Math.sin(spin) * 2.5, 5);
-      ctx.stroke();
+      // rotating lug hint
+      const la = spin * 2;
+      ctx.fillStyle = '#2a2018';
+      ctx.beginPath(); ctx.arc(Math.cos(la) * 1.8, Math.sin(la) * 3.4, 1, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(-Math.cos(la) * 1.8, -Math.sin(la) * 3.4, 1, 0, 6.2832); ctx.fill();
+      // tire shine
+      ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.ellipse(-2, 0, 4.5, 10, 0, 3.6, 5.6); ctx.stroke();
       ctx.restore();
     }
   }
@@ -506,15 +519,24 @@ function drawCar(ctx, o) {
   ctx.strokeRect(-w / 2 - 4, -h * 0.12, 5, 7);
   ctx.strokeRect(w / 2 - 1, -h * 0.12, 5, 7);
 
-  // --- body base
+  // --- body base: cylindrical pseudo-3D shading (light from upper-left)
   traceBody(ctx, 0, 0, w, h, j, type);
-  ctx.fillStyle = o.color; ctx.fill();
-  // lower side shading (sun from left)
+  const bg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+  bg.addColorStop(0, shade(o.color, -0.38));
+  bg.addColorStop(0.22, shade(o.color, -0.08));
+  bg.addColorStop(0.42, shade(o.color, 0.22));
+  bg.addColorStop(0.62, o.color);
+  bg.addColorStop(1, shade(o.color, -0.42));
+  ctx.fillStyle = bg; ctx.fill();
   ctx.save(); traceBody(ctx, 0, 0, w, h, j, type); ctx.clip();
-  ctx.fillStyle = 'rgba(30,20,12,.20)';
-  ctx.fillRect(w * 0.08, -h / 2, w / 2, h);
-  ctx.fillStyle = 'rgba(255,250,235,.20)';
-  ctx.fillRect(-w / 2, -h / 2, w * 0.22, h);
+  // spine highlight down the middle = dome of the body
+  const sg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+  sg.addColorStop(0, 'rgba(255,252,240,.30)');
+  sg.addColorStop(0.35, 'rgba(255,252,240,.07)');
+  sg.addColorStop(0.7, 'rgba(0,0,0,.06)');
+  sg.addColorStop(1, 'rgba(0,0,0,.16)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(-w * 0.18, -h / 2, w * 0.36, h);
   // door seam + handles
   ctx.strokeStyle = 'rgba(42,32,24,.45)'; ctx.lineWidth = 1.6;
   ctx.beginPath(); ctx.moveTo(-w / 2 + 5, h * 0.02); ctx.lineTo(w / 2 - 5, h * 0.02); ctx.stroke();
@@ -525,56 +547,68 @@ function drawCar(ctx, o) {
   ctx.restore();
   setInk(ctx, 3); traceBody(ctx, 0, 0, w, h, j, type); ctx.stroke();
 
-  // --- bumpers
-  ctx.fillStyle = '#3a332b';
+  // --- bumpers with top sheen
   const bw = w * 0.72;
-  ctx.beginPath(); ctx.ellipse(0, -h / 2 + 3, bw / 2, 4.5, 0, 0, 6.2832); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(0, h / 2 - 2, bw / 2, 4.5, 0, 0, 6.2832); ctx.fill();
-  setInk(ctx, 2);
-  ctx.beginPath(); ctx.ellipse(0, -h / 2 + 3, bw / 2, 4.5, 0, 0, 6.2832); ctx.stroke();
-  ctx.beginPath(); ctx.ellipse(0, h / 2 - 2, bw / 2, 4.5, 0, 0, 6.2832); ctx.stroke();
+  for (const by of [-h / 2 + 3, h / 2 - 2]) {
+    const bgr = ctx.createLinearGradient(0, by - 4.5, 0, by + 4.5);
+    bgr.addColorStop(0, '#5a5148'); bgr.addColorStop(0.5, '#3a332b'); bgr.addColorStop(1, '#211b14');
+    ctx.fillStyle = bgr;
+    ctx.beginPath(); ctx.ellipse(0, by, bw / 2, 4.5, 0, 0, 6.2832); ctx.fill();
+    setInk(ctx, 2);
+    ctx.beginPath(); ctx.ellipse(0, by, bw / 2, 4.5, 0, 0, 6.2832); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.ellipse(0, by - 1.5, bw / 2 - 3, 2, 0, 3.4, 6); ctx.stroke();
+  }
 
-  // --- glasshouse
-  const glass = '#bcd9e4';
-  const glassD = '#8fb2c2';
+  // --- glasshouse: deep gradient glass + hot reflection
+  const glassG = (x0, y0, x1, y1) => {
+    const gg = ctx.createLinearGradient(x0, y0, x1, y1);
+    gg.addColorStop(0, '#e8f4f8'); gg.addColorStop(0.35, '#bcd9e4');
+    gg.addColorStop(0.75, '#7fa5b8'); gg.addColorStop(1, '#5d8296');
+    return gg;
+  };
   setInk(ctx, 2.4);
   if (boxy) {
     // tall windshield + side glass band
-    ctx.fillStyle = glass;
+    ctx.fillStyle = glassG(0, -h * 0.36, 0, -h * 0.36 + 22);
     ctx.beginPath(); ctx.rect(-w / 2 + 7, -h * 0.36, w - 14, 22); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = glassD; ctx.fillRect(-w / 2 + 7, -h * 0.36 + 16, w - 14, 6);
     // reflection streak
-    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 12, -h * 0.36 + 18); ctx.lineTo(-w / 2 + 22, -h * 0.36 + 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-w / 2 + 12, -h * 0.36 + 18); ctx.lineTo(-w / 2 + 24, -h * 0.36 + 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-w / 2 + 18, -h * 0.36 + 19); ctx.lineTo(-w / 2 + 28, -h * 0.36 + 7); ctx.stroke();
   } else {
     // windshield
-    ctx.fillStyle = glass;
+    ctx.fillStyle = glassG(0, -h * 0.30, 0, -h * 0.06);
     ctx.beginPath();
     ctx.moveTo(-w / 2 + 8, -h * 0.30);
     ctx.lineTo(w / 2 - 8, -h * 0.30);
     ctx.lineTo(w / 2 - 12, -h * 0.06);
     ctx.lineTo(-w / 2 + 12, -h * 0.06);
     ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = glassD;
-    ctx.beginPath();
-    ctx.moveTo(-w / 2 + 8, -h * 0.30); ctx.lineTo(w / 2 - 8, -h * 0.30);
-    ctx.lineTo(w / 2 - 9, -h * 0.24); ctx.lineTo(-w / 2 + 9, -h * 0.24);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2.4;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 13, -h * 0.09); ctx.lineTo(-w / 2 + 22, -h * 0.27); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(-w / 2 + 13, -h * 0.09); ctx.lineTo(-w / 2 + 23, -h * 0.27); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-w / 2 + 19, -h * 0.08); ctx.lineTo(-w / 2 + 27, -h * 0.24); ctx.stroke();
     // rear window
-    ctx.fillStyle = glass; setInk(ctx, 2.2);
+    ctx.fillStyle = glassG(0, h * 0.20, 0, h * 0.34);
+    setInk(ctx, 2.2);
     ctx.beginPath();
     ctx.moveTo(-w / 2 + 10, h * 0.20); ctx.lineTo(w / 2 - 10, h * 0.20);
     ctx.lineTo(w / 2 - 8, h * 0.34); ctx.lineTo(-w / 2 + 8, h * 0.34);
     ctx.closePath(); ctx.fill(); ctx.stroke();
-    // roof panel
-    ctx.fillStyle = shade(o.color, 0.14);
+    // roof panel: domed gradient + left edge light
+    const rg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+    rg.addColorStop(0, shade(o.color, 0.30)); rg.addColorStop(0.4, shade(o.color, 0.16));
+    rg.addColorStop(0.75, shade(o.color, -0.02)); rg.addColorStop(1, shade(o.color, -0.22));
+    ctx.fillStyle = rg;
     ctx.beginPath();
     ctx.moveTo(-w / 2 + 11, -h * 0.04); ctx.lineTo(w / 2 - 11, -h * 0.04);
     ctx.lineTo(w / 2 - 10, h * 0.18); ctx.lineTo(-w / 2 + 10, h * 0.18);
     ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(42,32,24,.4)'; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-w / 2 + 13, -h * 0.03); ctx.lineTo(-w / 2 + 12, h * 0.17); ctx.stroke();
   }
 
   // --- type personality
@@ -673,6 +707,9 @@ function drawCar(ctx, o) {
   ctx.fillStyle = '#ffedb0';
   ctx.beginPath(); ctx.arc(-w / 2 + 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.fill();
   ctx.beginPath(); ctx.arc(w / 2 - 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.beginPath(); ctx.arc(-w / 2 + 7.5, -h / 2 + 5.5, 1.5, 0, 6.2832); ctx.fill();
+  ctx.beginPath(); ctx.arc(w / 2 - 10.5, -h / 2 + 5.5, 1.5, 0, 6.2832); ctx.fill();
   setInk(ctx, 2);
   ctx.beginPath(); ctx.arc(-w / 2 + 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.stroke();
   ctx.beginPath(); ctx.arc(w / 2 - 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.stroke();
