@@ -49,7 +49,7 @@ const CFG = {
 
 const CAR_COLORS = ['#2e7ab8', '#c94f43', '#2f8f83', '#e9b44c', '#7a8450', '#8d4a7a'];
 
-const TRAFFIC_TYPES = ['hatch', 'sedan', 'taxi', 'old', 'pickup', 'van'];
+const TRAFFIC_TYPES = ['hatch', 'sedan', 'taxi', 'old', 'pickup', 'van', 'microbus', 'police'];
 
 const SHOPS = ['فول عم فوزي', 'كشري التحرير', 'قهوة عبدو', 'فرن بلدي', 'عصير قصب', 'مكتبة النجاح', 'حلاق النجوم', 'بقالة الأمانة'];
 
@@ -499,21 +499,23 @@ class Particles {
    Lightweight vector cars: wobble polygon body + ink outline.
    dims scaled x1.65 from the 360-wide prototype to our 480 canvas. */
 const OK_KINDS = {
-  hatch:  { w: 46, h: 76, hood: 0.28 },
-  sedan:  { w: 50, h: 92, hood: 0.30 },
-  taxi:   { w: 50, h: 89, hood: 0.30 },
-  old:    { w: 45, h: 79, hood: 0.36 },
-  pickup: { w: 53, h: 102, hood: 0.26 },
-  van:    { w: 56, h: 112, hood: 0.15 },
+  hatch:    { w: 46, h: 76, hood: 0.28 },
+  sedan:    { w: 50, h: 92, hood: 0.30 },
+  taxi:     { w: 50, h: 89, hood: 0.30 },
+  old:      { w: 45, h: 79, hood: 0.36 },
+  pickup:   { w: 53, h: 102, hood: 0.26 },
+  van:      { w: 56, h: 112, hood: 0.15 },
+  microbus: { w: 56, h: 108, hood: 0.12 },
+  police:   { w: 50, h: 90, hood: 0.30 },
 };
-const OK_PAINTS = ['#d98b2b', '#b8453a', '#7a9e5a', '#e9dfc8', '#8a6fa8', '#3f8f8b', '#c9a227'];
+const OK_PAINTS = ['#d98b2b', '#b8453a', '#7a9e5a', '#e9dfc8', '#8a6fa8', '#3f8f83', '#c9a227', '#efe9dc', '#31587a', '#a83a5a'];
 const OK_REMOTE_KINDS = ['hatch', 'sedan', 'old', 'taxi'];
 function okStyle(seed, kind, color) {
   const k = OK_KINDS[kind] || OK_KINDS.sedan;
   const sd = seed | 0;
   return {
     w: k.w, h: k.h, hood: k.hood, kind, seed: sd || 1,
-    color: color || (kind === 'taxi' ? '#e6b422' : OK_PAINTS[Math.floor(hash01(sd + 7) * OK_PAINTS.length) % OK_PAINTS.length]),
+    color: color || (kind === 'taxi' ? '#e6b422' : kind === 'police' ? '#f2efe6' : kind === 'microbus' ? '#e9dfc8' : OK_PAINTS[Math.floor(hash01(sd + 7) * OK_PAINTS.length) % OK_PAINTS.length]),
   };
 }
 function playerStyle(color, seed) {
@@ -559,10 +561,29 @@ function drawCar(c, s, x, y, tilt, t) {
     okInked(c, 'rgba(255,255,255,.33)', 1.5);
     c.beginPath(); c.moveTo(0, -hh + hd + 12); c.lineTo(0, hh - 3); c.stroke();
   }
+  if (s.kind === 'microbus') {
+    okWob(c, [[-hw + 3, -hh + hd + 12], [hw - 3, -hh + hd + 12], [hw - 3, hh - 3], [-hw + 3, hh - 3]], sd + 7, 0.8);
+    okInked(c, 'rgba(255,255,255,.33)', 1.5);
+    // green waist stripe + sliding door
+    c.fillStyle = '#2f8f83'; c.fillRect(-hw + 3, 0, w - 6, 8);
+    c.strokeStyle = '#2a2018'; c.lineWidth = 1.4; c.strokeRect(-hw + 3, 0, w - 6, 8);
+    c.beginPath(); c.moveTo(hw - 10, -hh + hd + 12); c.lineTo(hw - 10, hh - 3); c.stroke();
+  }
   if (s.kind === 'taxi') { c.fillStyle = '#fffaf0'; c.fillRect(-6, -2, 12, 6); c.strokeRect(-6, -2, 12, 6); }
+  if (s.kind === 'police') {
+    // flashing light bar on the roof
+    const on = ((t * 6) % 2) < 1;
+    c.fillStyle = on ? '#ff3b30' : '#8a2320';
+    c.beginPath(); c.arc(-8, -hh + hd + 4, 4.5, 0, 6.2832); c.fill();
+    c.fillStyle = on ? '#274b73' : '#3b82f6';
+    c.beginPath(); c.arc(8, -hh + hd + 4, 4.5, 0, 6.2832); c.fill();
+    c.strokeStyle = '#2a2018'; c.lineWidth = 1.5;
+    c.beginPath(); c.arc(-8, -hh + hd + 4, 4.5, 0, 6.2832); c.stroke();
+    c.beginPath(); c.arc(8, -hh + hd + 4, 4.5, 0, 6.2832); c.stroke();
+  }
   okWob(c, [[-hw + 4, -hh + hd], [hw - 4, -hh + hd], [hw - 6, -hh + hd + 10], [-hw + 6, -hh + hd + 10]], sd + 2, 0.6);
   okInked(c, '#bfe3e0', 1.5);
-  if (s.kind === 'sedan' || s.kind === 'hatch' || s.kind === 'old' || s.kind === 'taxi' || s.kind === 'player') {
+  if (s.kind === 'sedan' || s.kind === 'hatch' || s.kind === 'old' || s.kind === 'taxi' || s.kind === 'police' || s.kind === 'player') {
     okWob(c, [[-hw + 5, hh - 14], [hw - 5, hh - 14], [hw - 4, hh - 7], [-hw + 4, hh - 7]], sd + 3, 0.5);
     okInked(c, '#9fcbc6', 1.5);
   }
@@ -582,6 +603,86 @@ function drawCar(c, s, x, y, tilt, t) {
     c.lineWidth = 1; c.strokeStyle = '#2a2018'; c.stroke();
   }
   c.restore();
+}
+
+/* rear-view car for hood mode (we see taillights) */
+function rInk(ctx, w) { ctx.strokeStyle = '#2a2018'; ctx.lineWidth = w; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; }
+function rShade(hex, amt) {
+  const n = parseInt(String(hex).slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  if (amt >= 0) { r += (255 - r) * amt; g += (255 - g) * amt; b += (255 - b) * amt; }
+  else { r *= 1 + amt; g *= 1 + amt; b *= 1 + amt; }
+  return 'rgb(' + (r | 0) + ',' + (g | 0) + ',' + (b | 0) + ')';
+}
+function drawRearCar(ctx, x, y, w, h, color, type, seed, phase) {
+  const tall = (type === 'van' || type === 'microbus');
+  const bx = x - w / 2, by = y - h / 2;
+  ctx.fillStyle = 'rgba(30,23,16,.30)';
+  ctx.beginPath(); ctx.ellipse(x + 2, y + h / 2 - 2, w / 2, Math.max(2, h * 0.07), 0, 0, 6.2832); ctx.fill();
+  // wheels peeking at the bottom corners
+  ctx.fillStyle = '#241c12';
+  ctx.fillRect(bx - 3, y + h * 0.08, 9, h * 0.22);
+  ctx.fillRect(bx + w - 6, y + h * 0.08, 9, h * 0.22);
+  rInk(ctx, 2);
+  ctx.strokeRect(bx - 3, y + h * 0.08, 9, h * 0.22);
+  ctx.strokeRect(bx + w - 6, y + h * 0.08, 9, h * 0.22);
+  // body: trapezoid, wider at the bottom
+  const taper = w * 0.1;
+  ctx.beginPath();
+  ctx.moveTo(bx + taper, by + h * 0.12);
+  ctx.lineTo(bx + w - taper, by + h * 0.12);
+  ctx.lineTo(bx + w, by + h - 6);
+  ctx.lineTo(bx, by + h - 6);
+  ctx.closePath();
+  const bg = ctx.createLinearGradient(bx, 0, bx + w, 0);
+  bg.addColorStop(0, rShade(color, -0.35)); bg.addColorStop(0.5, rShade(color, 0.12)); bg.addColorStop(1, rShade(color, -0.35));
+  ctx.fillStyle = bg; ctx.fill();
+  rInk(ctx, 2.5); ctx.stroke();
+  // roof cap
+  ctx.fillStyle = rShade(color, -0.12);
+  ctx.fillRect(bx + taper, by + h * 0.12, w - taper * 2, h * 0.1);
+  rInk(ctx, 2); ctx.strokeRect(bx + taper, by + h * 0.12, w - taper * 2, h * 0.1);
+  // rear windshield
+  const ww = w * (tall ? 0.7 : 0.62), wh = h * (tall ? 0.3 : 0.2);
+  const wx = x - ww / 2, wy = by + h * (tall ? 0.26 : 0.3);
+  const gg = ctx.createLinearGradient(0, wy, 0, wy + wh);
+  gg.addColorStop(0, '#e8f4f8'); gg.addColorStop(1, '#5d8296');
+  ctx.fillStyle = gg; ctx.fillRect(wx, wy, ww, wh);
+  rInk(ctx, 2); ctx.strokeRect(wx, wy, ww, wh);
+  ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(wx + 5, wy + wh - 3); ctx.lineTo(wx + ww * 0.4, wy + 3); ctx.stroke();
+  if (type === 'taxi') {
+    ctx.fillStyle = '#f6ecd4'; ctx.fillRect(x - 12, by + h * 0.02, 24, 9);
+    rInk(ctx, 1.8); ctx.strokeRect(x - 12, by + h * 0.02, 24, 9);
+  }
+  if (type === 'police') {
+    ctx.fillStyle = phase ? '#ff3b30' : '#8a2320';
+    ctx.beginPath(); ctx.arc(x - 9, by + h * 0.06, 5, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = phase ? '#274b73' : '#3b82f6';
+    ctx.beginPath(); ctx.arc(x + 9, by + h * 0.06, 5, 0, 6.2832); ctx.fill();
+    rInk(ctx, 1.6);
+    ctx.beginPath(); ctx.arc(x - 9, by + h * 0.06, 5, 0, 6.2832); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + 9, by + h * 0.06, 5, 0, 6.2832); ctx.stroke();
+  }
+  if (type === 'van' || type === 'microbus') {
+    ctx.strokeStyle = 'rgba(42,32,24,.5)'; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(x, wy); ctx.lineTo(x, by + h - 6); ctx.stroke();
+  }
+  if (type === 'microbus') {
+    ctx.fillStyle = '#2f8f83'; ctx.fillRect(bx + 4, by + h * 0.52, w - 8, 7);
+    rInk(ctx, 1.4); ctx.strokeRect(bx + 4, by + h * 0.52, w - 8, 7);
+  }
+  // taillights + plate + bumper
+  ctx.fillStyle = '#d13b2e';
+  ctx.fillRect(bx + 5, by + h - 24, w * 0.2, 6);
+  ctx.fillRect(bx + w - 5 - w * 0.2, by + h - 24, w * 0.2, 6);
+  rInk(ctx, 1.4);
+  ctx.strokeRect(bx + 5, by + h - 24, w * 0.2, 6);
+  ctx.strokeRect(bx + w - 5 - w * 0.2, by + h - 24, w * 0.2, 6);
+  ctx.fillStyle = '#f6ecd4'; ctx.fillRect(x - 9, by + h - 15, 18, 6);
+  rInk(ctx, 1.2); ctx.strokeRect(x - 9, by + h - 15, 18, 6);
+  ctx.fillStyle = '#3a332b'; ctx.fillRect(bx + 3, by + h - 8, w - 6, 6);
+  rInk(ctx, 1.6); ctx.strokeRect(bx + 3, by + h - 8, w - 6, 6);
 }
 
 /* ---------------- 9. Traffic (fair spawner) ---------------- */
@@ -868,7 +969,7 @@ class World {
     const h3 = hash01(idx * 9 + side + 130);
     const h4 = hash01(idx * 29 + side * 11 + 7);
     // varied facades: sandstone, faded rose, pale sage, dusty ochre
-    const pal = ['#e9dab6', '#dfc9a0', '#d9bfa4', '#cfd3b8', '#e2cfae'];
+    const pal = ['#e9dab6', '#dfc9a0', '#d9bfa4', '#cfd3b8', '#e2cfae', '#e5cfa8', '#d9b48f'];
     ctx.fillStyle = pal[(h1 * pal.length) | 0];
     ctx.fillRect(x0 + 2, y + 4, w - 4, segH - 8);
     // sun shade on one side
@@ -1037,6 +1138,214 @@ class World {
   }
 }
 
+/* ---------------- 13b. Hood view — sit in the car (pseudo-3D) ---------------- */
+class HoodView {
+  proj(g, offX, z) {
+    const W = g.W, H = g.H, HOR = H * 0.34;
+    const s = 60 / (60 + Math.max(1, z));
+    return { x: W / 2 + offX * s * 1.35, y: HOR + (H - HOR) * Math.pow(s, 0.85), s };
+  }
+  laneOff(g, lane) { return g.laneCenters[lane] - (g.geom.roadL + g.geom.roadW / 2); }
+  draw(ctx, g) {
+    const W = g.W, H = g.H, HOR = H * 0.34, cx = W / 2;
+    const roadW = g.geom.roadW, halfB = (roadW / 2) * 1.35;
+    const p = g.player;
+    const phase = (g.elapsed * 6) % 2 < 1;
+    // sky
+    const sky = ctx.createLinearGradient(0, 0, 0, HOR);
+    sky.addColorStop(0, '#8fc3e8'); sky.addColorStop(0.7, '#cfe6f2'); sky.addColorStop(1, '#f6d9a8');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, W, HOR + 1);
+    // sun + drifting clouds
+    ctx.fillStyle = 'rgba(255,236,180,.9)';
+    ctx.beginPath(); ctx.arc(W * 0.78, HOR * 0.45, 22, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.75)';
+    for (let i = 0; i < 3; i++) {
+      const clx = (((i * 230 + 80 - g.hoodDist * 0.03) % (W + 200)) + W + 200) % (W + 200) - 100;
+      const cly = HOR * (0.25 + i * 0.2);
+      ctx.beginPath(); ctx.ellipse(clx, cly, 34, 10, 0, 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(clx + 20, cly + 3, 24, 8, 0, 0, 6.2832); ctx.fill();
+    }
+    // distant Cairo skyline: domes + minarets (static = far away)
+    ctx.fillStyle = '#b99a76';
+    let bx0 = -20;
+    for (let i = 0; i < 9; i++) {
+      const bw = 40 + hash01(i * 7 + 3) * 50, bh = 18 + hash01(i * 13) * 26;
+      ctx.fillRect(bx0, HOR - bh, bw, bh);
+      if (hash01(i * 3) > 0.5) {
+        ctx.beginPath(); ctx.arc(bx0 + bw / 2, HOR - bh, bw * 0.28, 3.1416, 0); ctx.fill();
+      } else {
+        ctx.fillRect(bx0 + bw * 0.4, HOR - bh - 26, 7, 30);
+        ctx.beginPath(); ctx.arc(bx0 + bw * 0.4 + 3.5, HOR - bh - 28, 6, 0, 6.2832); ctx.fill();
+      }
+      bx0 += bw + 8;
+      if (bx0 > W + 20) break;
+    }
+    // sand base + road trapezoid
+    ctx.fillStyle = '#e3cfa1'; ctx.fillRect(0, HOR, W, H - HOR);
+    ctx.fillStyle = '#5e5b68';
+    ctx.beginPath();
+    ctx.moveTo(cx - halfB, H); ctx.lineTo(cx + halfB, H);
+    ctx.lineTo(cx + 8, HOR); ctx.lineTo(cx - 8, HOR);
+    ctx.closePath(); ctx.fill();
+    // scrolling lane dashes in perspective
+    const DZ = 140, RANGE = 1120;
+    ctx.lineCap = 'round';
+    for (let k = 0; k < RANGE / DZ; k++) {
+      const z = (k * DZ + g.hoodDist) % RANGE;
+      if (z < 16) continue;
+      const z2 = z + 36;
+      for (let l = 1; l < CFG.lanes; l++) {
+        const off = (l / CFG.lanes - 0.5) * roadW;
+        const p1 = this.proj(g, off, z), p2 = this.proj(g, off, z2);
+        ctx.strokeStyle = 'rgba(236,224,189,.85)';
+        ctx.lineWidth = Math.max(1, 7 * p1.s);
+        ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      }
+    }
+    // roadside props rushing past
+    for (let k = 0; k < 16; k++) {
+      const z = (k * 150 + 40 + g.hoodDist) % 1200;
+      if (z < 14) continue;
+      const side = k % 2 ? 1 : -1;
+      const off = side * (roadW / 2 + 26 + hash01(k * 3) * 30);
+      const pr = this.proj(g, off, z);
+      const kind = hash01(k * 11);
+      if (kind < 0.4) {
+        ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 4 * pr.s);
+        ctx.beginPath(); ctx.moveTo(pr.x, pr.y); ctx.lineTo(pr.x, pr.y - 70 * pr.s); ctx.stroke();
+      } else if (kind < 0.7) {
+        ctx.fillStyle = '#6f7f46';
+        ctx.beginPath(); ctx.arc(pr.x, pr.y - 26 * pr.s, 16 * pr.s, 0, 6.2832); ctx.fill();
+        ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 2 * pr.s); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(pr.x, pr.y); ctx.lineTo(pr.x, pr.y - 14 * pr.s); ctx.stroke();
+      } else {
+        const bw = 90 * pr.s, bh = 120 * pr.s;
+        ctx.fillStyle = '#dfc9a0';
+        ctx.fillRect(pr.x - bw / 2, pr.y - bh, bw, bh);
+        ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 2 * pr.s);
+        ctx.strokeRect(pr.x - bw / 2, pr.y - bh, bw, bh);
+      }
+    }
+    if (p) {
+      // traffic ahead (rear view, far drawn first)
+      const items = [];
+      for (const c of g.traffic.list) {
+        const z = p.y - c.y;
+        if (z > 25 && z < 700) items.push({ c, z });
+      }
+      items.sort((a, b) => b.z - a.z);
+      for (const it of items) {
+        const pr = this.proj(g, this.laneOff(g, it.c.lane), it.z);
+        const wpx = Math.max(8, it.c.style.w * pr.s * 3.4);
+        const hpx = wpx * (it.c.style.h / it.c.style.w);
+        drawRearCar(ctx, pr.x, pr.y - hpx / 2, wpx, hpx, it.c.style.color, it.c.type, it.c.style.seed, phase);
+      }
+      // whoosh when a car blasts past beside you
+      const pl = Math.round(p.laneF);
+      for (const c of g.traffic.list) {
+        const z = p.y - c.y;
+        if (Math.abs(z) <= 25 && Math.abs(c.lane - pl) === 1) {
+          const side = c.lane > pl ? 1 : -1;
+          ctx.strokeStyle = 'rgba(255,250,235,.28)';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const wx = cx + side * (W * 0.18 + hash01(i * 31 + ((g.elapsed * 40) | 0)) * W * 0.25);
+            const wy = rand(0, H);
+            ctx.moveTo(wx, wy); ctx.lineTo(wx, wy + 90);
+          }
+          ctx.stroke();
+          g.shake = Math.max(g.shake || 0, 3);
+        }
+      }
+      // coins ahead
+      for (const cn of g.coins.list) {
+        const z = p.y - cn.y;
+        if (z < 14 || z > 650) continue;
+        const pr = this.proj(g, this.laneOff(g, cn.lane), z);
+        const r = 3 + 11 * pr.s;
+        ctx.fillStyle = 'rgba(30,23,16,.25)';
+        ctx.beginPath(); ctx.ellipse(pr.x, pr.y + 3, r, r * 0.4, 0, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = '#e9b44c'; ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 2.5 * pr.s);
+        ctx.beginPath(); ctx.arc(pr.x, pr.y, r, 0, 6.2832); ctx.fill(); ctx.stroke();
+      }
+      // rival ghosts ahead
+      g.remoteView.items.forEach((v) => {
+        const rp = v._p; if (!rp) return;
+        const z = clamp(((rp.d || 0) - p.dist) * 2.2, -420, 200);
+        if (z < 20 || z > 600) return;
+        const laneF = clamp(v.dx, 0, 1) * CFG.lanes - 0.5;
+        const i = clamp(laneF, -0.5, CFG.lanes - 0.5);
+        const l0 = clamp(Math.floor(i), 0, CFG.lanes - 1);
+        const off = (g.laneCenters[l0] - (g.geom.roadL + roadW / 2)) + (i - l0) * (roadW / CFG.lanes);
+        const pr = this.proj(g, off, z);
+        ctx.save(); ctx.globalAlpha = 0.6;
+        const wpx = Math.max(8, 48 * pr.s * 3.4), hpx = wpx * 1.8;
+        drawRearCar(ctx, pr.x, pr.y - hpx / 2, wpx, hpx, rp.c || '#c94f43', 'sedan', 7, phase);
+        ctx.restore();
+        const nm = String(rp.n || 'سواق').slice(0, 12);
+        ctx.font = 'bold 12px "El Messiri", sans-serif';
+        const tw = ctx.measureText(nm).width + 16;
+        const ty = pr.y - hpx - 14;
+        ctx.fillStyle = '#f6ecd4'; ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(pr.x - tw / 2, ty - 11, tw, 20, 8);
+        else ctx.rect(pr.x - tw / 2, ty - 11, tw, 20);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#2a2018'; ctx.textAlign = 'center'; ctx.fillText(nm, pr.x, ty + 4);
+      });
+    }
+    // ---- cockpit: hood + dash + wheel + pillars ----
+    const pc = (p && p.color) || '#2e7ab8';
+    const hg = ctx.createLinearGradient(0, H - 150, 0, H);
+    hg.addColorStop(0, rShade(pc, 0.08)); hg.addColorStop(1, rShade(pc, -0.25));
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.moveTo(cx - 170, H); ctx.lineTo(cx + 170, H);
+    ctx.lineTo(cx + 70, H - 120); ctx.lineTo(cx - 70, H - 120);
+    ctx.closePath(); ctx.fill();
+    rInk(ctx, 3); ctx.stroke();
+    // dash panel + speed readout
+    ctx.fillStyle = '#2e2620';
+    ctx.fillRect(0, H - 64, W, 64);
+    ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(0, H - 64, W, 5);
+    ctx.fillStyle = '#e9b44c'; ctx.font = 'bold 12px "El Messiri", sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText('كم/س', 20, H - 44);
+    ctx.fillStyle = '#f6ecd4'; ctx.font = 'bold 34px "El Messiri", sans-serif';
+    ctx.fillText(ar(Math.round(g.speed * 0.16)), 18, H - 12);
+    // steering wheel (turns with the car, jolts on crash)
+    const wang = (p ? p.tilt : 0) * 5 + ((p && !p.alive ? (p.wreckRot || 0) : 0) * 1.5);
+    ctx.save(); ctx.translate(cx, H - 40);
+    ctx.fillStyle = '#241c12'; ctx.fillRect(-7, 8, 14, 44);
+    ctx.save(); ctx.rotate(wang);
+    rInk(ctx, 5);
+    ctx.beginPath(); ctx.arc(0, 0, 44, 0, 6.2832); ctx.stroke();
+    ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 7;
+    for (let si = 0; si < 3; si++) {
+      const a = si * 2.094;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 40, Math.sin(a) * 40); ctx.stroke();
+    }
+    ctx.fillStyle = pc;
+    ctx.beginPath(); ctx.arc(0, 0, 13, 0, 6.2832); ctx.fill();
+    rInk(ctx, 2.5); ctx.stroke();
+    ctx.restore(); ctx.restore();
+    // A-pillars + rearview mirror
+    ctx.strokeStyle = '#241c12'; ctx.lineWidth = 16; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(6, -10); ctx.lineTo(64, H * 0.4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W - 6, -10); ctx.lineTo(W - 64, H * 0.4); ctx.stroke();
+    ctx.fillStyle = '#1d2733';
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(cx - 46, 14, 92, 26, 8);
+    else ctx.rect(cx - 46, 14, 92, 26);
+    ctx.fill();
+    rInk(ctx, 2.5); ctx.stroke();
+    // vignette
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.36, W / 2, H / 2, H * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(42,32,24,.20)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  }
+}
+
 /* ---------------- 14. Game ---------------- */
 class Game {
   constructor(net, audio) {
@@ -1051,6 +1360,9 @@ class Game {
     this.remotes = new Map();
     this.remoteView = new RemoteView();
     this.world = new World(this);
+    this.hood = new HoodView();
+    this.view = Store.get('gamarawy_view', 'top');
+    this.hoodDist = 0;
     this.scroll = 0; this.elapsed = 0; this.speed = 0;
     this.bounce = 0; this.shake = 0;
     this.overTimer = 0; this.overReason = 'crash';
@@ -1209,6 +1521,12 @@ class Game {
     $('onlineCount').textContent = ar(n || 1);
     $('liveCount').textContent = ar(n || 1);
   }
+  toggleView() {
+    this.view = this.view === 'hood' ? 'top' : 'hood';
+    Store.set('gamarawy_view', this.view);
+    const b = $('btnCam');
+    if (b) b.textContent = this.view === 'hood' ? '🗺️' : '🚗';
+  }
   speedNow() {
     return CFG.baseSpeed + Math.min(CFG.maxExtraSpeed, this.elapsed * (CFG.maxExtraSpeed / CFG.rampTime));
   }
@@ -1239,6 +1557,7 @@ class Game {
       const p = this.player;
       this.countT -= dt;
       this.scroll += 50 * dt;
+      this.hoodDist += 50 * dt;
       this.bounce += dt * 6;
       this.parts.update(dt);
       if (p.moveCool > 0) p.moveCool -= dt;
@@ -1263,6 +1582,7 @@ class Game {
       const target = cruise * (thr >= 0 ? 1 + CFG.gasBoost * thr : 1 - CFG.brakeCut * -thr);
       this.speed = lerp(this.speed, target, damp(target > this.speed ? CFG.accelUp : CFG.accelDown, dt));
       this.scroll += this.speed * dt;
+      this.hoodDist += this.speed * dt;
       this.audio.engineSpeed(this.speed);
       if (p.moveCool > 0) p.moveCool -= dt;
       if (p.invuln > 0) p.invuln -= dt;
@@ -1343,6 +1663,7 @@ class Game {
       const sdt = dt * 0.35; // slow-mo wreck
       this.overTimer -= dt;
       this.scroll += this.speed * sdt * 0.3;
+      this.hoodDist += this.speed * sdt * 0.3;
       this.speed = Math.max(0, this.speed - sdt * 400);
       if (p && !p.alive) {
         p.wreckRot = (p.wreckRot || 0) + (p.wreckSpin || 5) * sdt;
@@ -1355,6 +1676,7 @@ class Game {
       if (this.overTimer <= 0) this._finishOver();
     } else {
       this.scroll += 90 * dt;
+      this.hoodDist += 90 * dt;
       this.parts.update(dt);
     }
   }
@@ -1362,6 +1684,9 @@ class Game {
     const ctx = this.ctx;
     ctx.save();
     if (this.shake > 0) ctx.translate(rand(-this.shake, this.shake) * 0.5, rand(-this.shake, this.shake) * 0.5);
+    if (this.view === 'hood') {
+      this.hood.draw(ctx, this);
+    } else {
     this.world.draw(ctx);
     // speed streaks past ~650px/s: more speed, more streaks
     if (this.state === 'racing' && this.speed > 650) {
@@ -1412,6 +1737,7 @@ class Game {
       }
     }
     this.parts.draw(ctx);
+    } // end top-down branch
     const vg = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.36, this.W / 2, this.H / 2, this.H * 0.75);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(42,32,24,.20)');
     ctx.fillStyle = vg; ctx.fillRect(0, 0, this.W, this.H);
@@ -1453,6 +1779,8 @@ const UI = {
     };
     window.addEventListener('pointerdown', () => audio.ensure(), { once: true });
     $('btnSound').textContent = audio.muted ? '🔇' : '🔊';
+    $('btnCam').onclick = () => { audio.click(); game.toggleView(); };
+    $('btnCam').textContent = game.view === 'hood' ? '🗺️' : '🚗';
     $('nickInput').value = game.name || '';
     $('lobbyBest').textContent = ar(game.best);
     this.buildCarDots();
