@@ -421,6 +421,19 @@ class Particles {
       r: rand(1.5, 3), life: rand(0.3, 0.6), t: 0, col: '233,180,76',
     });
   }
+  skid(x, y) {
+    for (let i = 0; i < 6; i++) this._add({
+      x: x + rand(-14, 14), y: y + rand(-2, 4),
+      vx: rand(-20, 20), vy: rand(20, 70),
+      r: rand(2, 4), life: rand(0.35, 0.6), t: 0, col: '80,76,68',
+    });
+  }
+  exhaust(x, y) {
+    this._add({
+      x: x + rand(-2, 2), y, vx: rand(-12, 12), vy: rand(40, 90),
+      r: rand(1.5, 3), life: rand(0.25, 0.45), t: 0, col: '130,125,118',
+    });
+  }
   update(dt) {
     const l = this.list;
     for (let i = l.length - 1; i >= 0; i--) {
@@ -1042,28 +1055,30 @@ class Game {
     if (this.player) this.player.throttle = (this.pedalGas ? 1 : 0) + (this.pedalBrake ? -1 : 0);
   }
   requestMove(dir) {
-    if (this.state !== 'racing' || !this.player || this.paused) return;
+    if ((this.state !== 'racing' && this.state !== 'countdown') || !this.player || this.paused) return;
     if (this.player.tryMove(dir)) {
       this.audio.lane();
       this.parts.dust(this.player.x, this.player.y + 30, 4);
+      this.parts.skid(this.player.x, this.player.y + 34);
     }
   }
   start(nick) {
-    this.audio.ensure(); this.audio.click(); this.audio.startJingle(); this.audio.startEngine();
+    this.audio.ensure(); this.audio.click(); this.audio.startEngine();
     if (nick && nick.trim()) { this.name = nick.trim().slice(0, 14); Store.set('gamarawy_name', this.name); }
     if (!this.name) this.name = 'سواق';
     Store.set('gamarawy_car', this.carColor);
     this.net.setIdentity(this.name, this.carColor);
-    this.state = 'racing';
+    this.state = 'countdown';
+    this.countT = 2.1; this.countShown = 4;
     this.scroll = 0; this.elapsed = 0; this.shake = 0; this.speed = 0;
     this.pedalGas = false; this.pedalBrake = false;
-    this.traffic.reset(); this.coins.reset(); this.parts.clear();
+    this.traffic.reset(); this.traffic.timer = 1.4; this.coins.reset(); this.parts.clear();
     this.player = new Player(this.carColor, this.laneCenters[1]);
     this.player.y = this.H - CFG.playerY;
     $('lobby').classList.add('hidden'); $('gameover').classList.add('hidden');
     $('hud').classList.remove('hidden'); $('liveTag').classList.remove('hidden');
     $('touchControls').classList.remove('hidden'); // joystick deck on all screens
-    this.bigMsg('السباق بدأ!');
+    this.bigMsg('استعد…');
   }
   toLobby() {
     this.audio.click();
@@ -1096,6 +1111,8 @@ class Game {
     const isRec = s > this.best;
     if (isRec) { this.best = s; Store.set('gamarawy_best', s); }
     $('overBest').textContent = ar(this.best);
+    $('overNear').textContent = ar(p.nearN);
+    $('overCoins').textContent = ar(p.coinsN);
     $('newRecord').classList.toggle('hidden', !isRec);
     if (isRec) this.audio.fanfare();
     $('overKicker').textContent = 'خبطت يا معلم…';
@@ -1156,7 +1173,26 @@ class Game {
     }
   }
   _update(dt) {
-    if (this.state === 'racing' && this.player) {
+    if (this.state === 'countdown' && this.player) {
+      const p = this.player;
+      this.countT -= dt;
+      this.scroll += 50 * dt;
+      this.bounce += dt * 6;
+      this.parts.update(dt);
+      if (p.moveCool > 0) p.moveCool -= dt;
+      p.laneF = lerp(p.laneF, p.lane, damp(14, dt));
+      p.x = this.laneX(p.laneF);
+      const n = Math.ceil(this.countT / 0.7);
+      if (n !== this.countShown && n >= 1 && n <= 3) {
+        this.countShown = n; this.bigMsg(ar(n)); this.audio.click();
+      }
+      if (this.countT <= 0) {
+        this.state = 'racing'; this.elapsed = 0;
+        p.invuln = CFG.invulnTime;
+        this.bigMsg('السباق بدأ!');
+        this.audio.startJingle();
+      }
+    } else if (this.state === 'racing' && this.player) {
       const p = this.player;
       this.elapsed += dt;
       // cruise speed ramps up; pedals ease actual speed toward a target
@@ -1222,6 +1258,10 @@ class Game {
         }
       }
       if (Math.random() < dt * 22) this.parts.dust(p.x + rand(-10, 10), p.y + 36, 1);
+      if ((p.throttle || 0) > 0) {
+        this.exhT = (this.exhT || 0) - dt;
+        if (this.exhT <= 0) { this.exhT = 0.09; this.parts.exhaust(p.x + 13, p.y + 42); }
+      }
       this.parts.update(dt);
       if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 30);
       this.remoteView.update(dt, this.remotes, p.dist);
@@ -1277,7 +1317,7 @@ class Game {
     }
     // player
     const p = this.player;
-    if (p && (this.state === 'racing' || this.state === 'over-anim')) {
+    if (p && (this.state === 'racing' || this.state === 'over-anim' || this.state === 'countdown')) {
       const blink = p.invuln > 0 && this.state === 'racing' && (p.invuln * 10 | 0) % 2 === 0;
       if (!blink) drawCar(ctx, p.style, p.x, p.y + Math.sin(this.bounce) * 1.6, p.tilt, this.elapsed);
     }
