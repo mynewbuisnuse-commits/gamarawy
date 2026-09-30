@@ -413,6 +413,127 @@ class Particles {
   clear() { this.list.length = 0; }
 }
 
+/* ---------------- 7b. CarSprites — ready top-down art (Unlucky Studio, royalty-free) -------- */
+const SPRITE_FILES = {
+  audi: 'assets/cars/audi.png',
+  car: 'assets/cars/car.png',
+  viper: 'assets/cars/viper.png',
+  taxi: 'assets/cars/taxi.png',
+  van: 'assets/cars/van.png',
+  pickup: 'assets/cars/pickup.png',
+  truck: 'assets/cars/truck.png',
+};
+const TYPE_SPRITE = { sedan: 'car', hatch: 'viper', compact: 'audi', taxi: 'taxi', pickup: 'pickup', van: 'van' };
+
+const CarSprites = {
+  ready: false,
+  imgs: {},   // key -> {img, sx, sy, sw, sh}
+  tinted: {}, // colorHex -> entry (hue-shifted Audi)
+  load() {
+    const keys = Object.keys(SPRITE_FILES);
+    return new Promise((resolve) => {
+      if (!keys.length) return resolve();
+      let done = 0;
+      const fin = () => { if (++done === keys.length) { this.ready = true; resolve(); } };
+      keys.forEach((k) => {
+        const img = new Image();
+        img.onload = () => { this.imgs[k] = this._crop(img); fin(); };
+        img.onerror = () => fin();
+        img.src = SPRITE_FILES[k];
+      });
+    });
+  },
+  _crop(img) {
+    // tight bounding box of visible pixels so aspect stays correct
+    try {
+      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      const x = c.getContext('2d', { willReadFrequently: true });
+      x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, c.width, c.height).data;
+      let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+      for (let yy = 0; yy < c.height; yy += 2) for (let xx = 0; xx < c.width; xx += 2) {
+        if (d[(yy * c.width + xx) * 4 + 3] > 8) {
+          if (xx < x0) x0 = xx; if (xx > x1) x1 = xx;
+          if (yy < y0) y0 = yy; if (yy > y1) y1 = yy;
+        }
+      }
+      if (x1 < 0) return { img, sx: 0, sy: 0, sw: img.width, sh: img.height };
+      return { img, sx: x0, sy: y0, sw: x1 - x0 + 2, sh: y1 - y0 + 2 };
+    } catch { return { img, sx: 0, sy: 0, sw: img.width, sh: img.height }; }
+  },
+  get(key) { return this.imgs[key] || null; },
+  /** hue-shift the red Audi base into any player/remote color (cached) */
+  tintedAudi(colorHex) {
+    if (this.tinted[colorHex]) return this.tinted[colorHex];
+    if (!this.imgs.audi) return null;
+    const cv = hueShiftCanvas(this.imgs.audi.img, colorHex);
+    if (!cv) return null;
+    const entry = this._crop(cv);
+    this.tinted[colorHex] = entry;
+    return entry;
+  },
+  draw(ctx, entry, x, y, w, h, tilt) {
+    if (!entry) return false;
+    const iw = entry.img.naturalWidth || entry.img.width;
+    if (!iw || !entry.sw) return false;
+    ctx.save();
+    ctx.translate(x, y);
+    if (tilt) ctx.rotate(tilt);
+    ctx.fillStyle = 'rgba(30,23,16,.30)';
+    ctx.beginPath(); ctx.ellipse(2, h / 2 - 2, w / 2, 6, 0, 0, 6.2832); ctx.fill();
+    const s = Math.min(w / entry.sw, h / entry.sh);
+    const dw = entry.sw * s, dh = entry.sh * s;
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    try {
+      ctx.drawImage(entry.img, entry.sx, entry.sy, entry.sw, entry.sh, -dw / 2, -dh / 2, dw, dh);
+    } catch { ctx.restore(); return false; }
+    ctx.restore();
+    return true;
+  },
+};
+
+/** shift saturated pixels of img toward targetHex hue; glass/tires/lights untouched */
+function hueShiftCanvas(img, targetHex) {
+  try {
+    const tn = parseInt(targetHex.slice(1), 16);
+    const tH = rgbToHsl((tn >> 16) & 255, (tn >> 8) & 255, tn & 255)[0];
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0);
+    const id = x.getImageData(0, 0, c.width, c.height), d = id.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 8) continue;
+      const hsl = rgbToHsl(d[i], d[i + 1], d[i + 2]);
+      if (hsl[1] < 0.18 || hsl[2] < 0.08 || hsl[2] > 0.93) continue;
+      const rgb = hslToRgb(tH, Math.min(1, hsl[1] * 1.05), hsl[2]);
+      d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
+    }
+    x.putImageData(id, 0, 0);
+    return c;
+  } catch { return null; }
+}
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (mx + mn) / 2;
+  if (mx !== mn) {
+    const dd = mx - mn;
+    s = l > 0.5 ? dd / (2 - mx - mn) : dd / (mx + mn);
+    if (mx === r) h = ((g - b) / dd + (g < b ? 6 : 0)) / 6;
+    else if (mx === g) h = ((b - r) / dd + 2) / 6;
+    else h = ((r - g) / dd + 4) / 6;
+  }
+  return [h, s, l];
+}
+function hslToRgb(h, s, l) {
+  const f = (n) => {
+    const k = (n + h * 12) % 12;
+    const a = s * Math.min(l, 1 - l);
+    return Math.round((l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255);
+  };
+  return [f(0), f(8), f(4)];
+}
+
 /* ---------------- 8. CarArt — hand-inked, each type has a silhouette ---------------- */
 function setInk(ctx, w) {
   ctx.strokeStyle = '#2a2018'; ctx.lineWidth = w;
@@ -862,7 +983,10 @@ class RemoteView {
       const nm0 = String(p.n || 'سواق');
       let hh = 0; for (let i = 0; i < nm0.length; i++) hh = (hh * 31 + nm0.charCodeAt(i)) | 0;
       const types = ['sedan', 'hatch', 'compact', 'taxi'];
-      drawCar(ctx, { x, y, w: 48, h: 86, color: p.c || '#c94f43', type: types[Math.abs(hh) % types.length], seed: Math.abs(hh) + 11, tilt: 0, spin: game.wheel });
+      const rtype = types[Math.abs(hh) % types.length];
+      const rentry = CarSprites.tintedAudi(p.c || '#c94f43');
+      if (!rentry || !CarSprites.draw(ctx, rentry, x, y, 52, 94, 0))
+        drawCar(ctx, { x, y, w: 48, h: 86, color: p.c || '#c94f43', type: rtype, seed: Math.abs(hh) + 11, tilt: 0, spin: game.wheel });
       const nm = String(p.n || 'سواق').slice(0, 12);
       ctx.save(); ctx.translate(x, y - 56); ctx.rotate(-0.03);
       ctx.font = 'bold 12px "El Messiri", sans-serif';
@@ -1447,10 +1571,12 @@ class Game {
       ctx.fillText('ج', 0.5, 4);
       ctx.restore();
     }
-    // traffic — same direction as you, faster, zooming upward past you
+    // traffic — ready sprite art, vector fallback until loaded
     for (const c of this.traffic.list) {
       const x = this.laneCenters[c.lane] + Math.sin(c.wob) * 1.5;
-      drawCar(ctx, { x, y: c.y, w: c.w, h: c.h, color: c.color, type: c.type, seed: c.seed, tilt: Math.sin(c.wob) * 0.02, spin: this.wheel, _j: c._j || (c._j = wobbles(c.seed)) });
+      const key = TYPE_SPRITE[c.type] || 'car';
+      if (!CarSprites.draw(ctx, CarSprites.get(key), x, c.y, c.w + 4, c.h + 6, Math.sin(c.wob) * 0.02))
+        drawCar(ctx, { x, y: c.y, w: c.w, h: c.h, color: c.color, type: c.type, seed: c.seed, tilt: Math.sin(c.wob) * 0.02, spin: this.wheel, _j: c._j || (c._j = wobbles(c.seed)) });
     }
     this.remoteView.draw(ctx, this);
     // player
@@ -1460,16 +1586,22 @@ class Game {
       if (!blink) {
         // squash on lane change: widen slightly with tilt
         const squash = 1 + Math.min(0.06, Math.abs(p.tilt) * 0.18);
-        ctx.save();
-        ctx.translate(p.x, p.y + Math.sin(this.bounce) * 1.6);
-        ctx.scale(squash, 1 / Math.sqrt(squash));
-        ctx.translate(-p.x, -(p.y + Math.sin(this.bounce) * 1.6));
-        drawCar(ctx, {
-          x: p.x, y: p.y + Math.sin(this.bounce) * 1.6,
-          w: 50, h: 90, color: p.color, type: 'sedan',
-          seed: p.seed, tilt: p.tilt, spin: this.wheel, isPlayer: true,
-        });
-        ctx.restore();
+        const py = p.y + Math.sin(this.bounce) * 1.6;
+        const entry = CarSprites.tintedAudi(p.color);
+        if (entry) {
+          CarSprites.draw(ctx, entry, p.x, py, 58, 102, p.tilt);
+        } else {
+          ctx.save();
+          ctx.translate(p.x, py);
+          ctx.scale(squash, 1 / Math.sqrt(squash));
+          ctx.translate(-p.x, -py);
+          drawCar(ctx, {
+            x: p.x, y: py,
+            w: 50, h: 90, color: p.color, type: 'sedan',
+            seed: p.seed, tilt: p.tilt, spin: this.wheel, isPlayer: true,
+          });
+          ctx.restore();
+        }
       }
     }
     this.parts.draw(ctx);
@@ -1586,6 +1718,8 @@ const UI = {
   const net = new NetManager();
   const game = new Game(net, audio);
   UI.init(game, net, audio);
+  // ready car art loads in background; vector cars show until then
+  try { CarSprites.load().catch(() => {}); } catch {}
   net.name = game.name || 'سواق';
   net.car = game.carColor;
   net.init({
