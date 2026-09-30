@@ -154,6 +154,7 @@ class AudioManager {
   coin() { this._tone(880, 0.08, { type: 'square', vol: 0.045 }); this._tone(1318, 0.1, { type: 'square', vol: 0.045, delay: 0.07 }); }
   near() { this._tone(480, 0.2, { type: 'sawtooth', vol: 0.055, slideTo: 1150 }); }
   crash() { this._noise(0.38, { vol: 0.2, cutoff: 520 }); this._tone(130, 0.38, { vol: 0.16, slideTo: 55 }); }
+  thud() { this._noise(0.3, { vol: 0.14, cutoff: 250, delay: 0.12 }); }
   startJingle() { [262, 330, 392, 523].forEach((f, i) => this._tone(f, 0.13, { type: 'triangle', vol: 0.085, delay: i * 0.095 })); }
   fanfare() { [523, 659, 784].forEach((f, i) => this._tone(f, 0.16, { type: 'triangle', vol: 0.09, delay: i * 0.12 })); }
   startEngine() {
@@ -1116,21 +1117,24 @@ class Game {
   crash() {
     const p = this.player;
     if (!p || !p.alive || this.state !== 'racing') return;
+    // state FIRST so a later error can never soft-lock the game
     p.alive = false;
     p.wreckRot = 0;
     p.wreckSpin = (Math.random() < 0.5 ? -1 : 1) * rand(4.5, 7.5);
     p.wreckSlide = rand(-40, 40);
-    this.audio.crash();
-    this.audio.noise(0.3, { vol: 0.14, cutoff: 250, delay: 0.12 });
-    this.audio.stopEngine();
+    this.state = 'over-anim';
+    this.overTimer = 1.25; this.overReason = 'crash';
     this.shake = 22; this.flash = 1; this.hitstop = 0.12;
+    this.bigMsg('متخبطش!');
     this.parts.spark(p.x, p.y, 18);
     this.parts.fire(p.x, p.y, 14);
     this.parts.debris(p.x, p.y, 12);
     this.parts.smoke(p.x, p.y, 8);
-    this.state = 'over-anim';
-    this.overTimer = 1.25; this.overReason = 'crash';
-    this.bigMsg('متخبطش!');
+    try {
+      this.audio.crash();
+      this.audio.thud();
+      this.audio.stopEngine();
+    } catch (err) { console.error(err); }
   }
   _finishOver() {
     this.state = 'over';
@@ -1192,8 +1196,9 @@ class Game {
     if (!(dt > 0)) return;
     dt = clamp(dt, 0, 0.05);
     if (this.paused) return; // freeze while tab hidden
-    this._update(dt);
-    this._render();
+    // never let one bad frame freeze the whole game
+    try { this._update(dt); } catch (err) { console.error(err); }
+    try { this._render(); } catch (err) { console.error(err); }
     // net push (throttled inside)
     if (this.state === 'racing' && this.player) {
       this.net.pushRace({
