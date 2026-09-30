@@ -260,6 +260,8 @@ class InputManager {
     repeat('btnR', () => this.game.requestMove(1));
     const tiltBtn = $('btnTilt');
     if (tiltBtn) tiltBtn.addEventListener('click', () => this.toggleTilt());
+    const tiltBtnD = $('btnTiltD');
+    if (tiltBtnD) tiltBtnD.addEventListener('click', () => this.toggleTilt());
     // joystick: sideways notches shift lanes, up = gas, down = brake
     const base = $('joyBase'), knob = $('joyKnob');
     if (base && knob) {
@@ -303,12 +305,18 @@ class InputManager {
     if (this.tilt.gamma != null) this.tilt.base = this.tilt.gamma;
     else this.tilt.needBase = true;
   }
+  _tiltLabel(t) {
+    for (const id of ['tiltState', 'tiltStateD']) {
+      const el = $(id);
+      if (el) el.textContent = t;
+    }
+  }
   async toggleTilt() {
     this.game.audio.ensure(); this.game.audio.click();
     if (this.tilt.on) {
       this.tilt.on = false;
       if (this.tilt.timer) { clearInterval(this.tilt.timer); this.tilt.timer = 0; }
-      $('tiltState').textContent = 'مقفولة';
+      this._tiltLabel('مقفولة');
       return;
     }
     // iOS needs explicit permission from a tap
@@ -316,11 +324,11 @@ class InputManager {
       const DOE = window.DeviceOrientationEvent;
       if (DOE && typeof DOE.requestPermission === 'function') {
         if (await DOE.requestPermission() !== 'granted') return;
-      } else if (typeof DOE === 'undefined') return; // no sensor at all
+      } else if (typeof DOE === 'undefined') { this.game.popup('الميل بيشتغل من الموبايل بس 📱'); return; } // no sensor at all
     } catch { return; }
     this.tilt.on = true;
     this.calibrateTilt();
-    $('tiltState').textContent = 'مفتوحة';
+    this._tiltLabel('مفتوحة');
     this.game.popup('ميل الموبايل يمين وشمال 📱');
     if (!this.tilt.timer) this.tilt.timer = setInterval(() => {
       if (!this.tilt.on) return;
