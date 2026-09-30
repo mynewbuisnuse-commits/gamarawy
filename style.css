@@ -129,7 +129,7 @@ body{
 @keyframes pop{from{scale:.4}to{scale:1}}
 
 /* ---------- أزرار اللمس ---------- */
-#touchControls{position:absolute; bottom:12px; right:12px; left:12px; display:flex; justify-content:space-between; z-index:6}
+#touchControls{position:absolute; bottom:12px; right:12px; left:12px; display:flex; justify-content:space-between; z-index:6; direction:ltr}
 #touchControls.hidden{display:none}
 #touchControls button{
   width:86px; height:72px; font-size:26px; cursor:pointer; color:var(--ink);

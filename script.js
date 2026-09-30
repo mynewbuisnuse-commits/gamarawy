@@ -454,7 +454,7 @@ function drawCar(ctx, o) {
   const j = o._j || (o._j = wobbles(seed));
   const type = o.type || 'sedan';
   const boxy = (type === 'van' || type === 'pickup');
-  const flip = !!o.flip; // oncoming traffic faces the player (headlights toward you)
+  const flip = !!o.flip; // optional 180° turn (kept for future use)
   ctx.save();
   ctx.translate(o.x, o.y);
   if (o.tilt) ctx.rotate(o.tilt);
@@ -743,19 +743,19 @@ function drawCar(ctx, o) {
 class TrafficManager {
   constructor(lanes) { this.lanes = lanes; this.list = []; this.timer = 0.6; }
   reset() { this.list.length = 0; this.timer = 0.8; }
-  /** is lane blocked near spawn line? */
-  _blocked(lane) {
-    for (const c of this.list) if (c.lane === lane && c.y < 90) return true;
+  /** is lane blocked near the spawn line (bottom)? */
+  _blocked(lane, H) {
+    for (const c of this.list) if (c.lane === lane && c.y > H - 130) return true;
     return false;
   }
-  update(dt, playerSpeed, elapsed) {
+  update(dt, elapsed, H) {
     this.timer -= dt;
     const diff = clamp(elapsed / CFG.rampTime, 0, 1);
     if (this.timer <= 0) {
       this.timer = lerp(1.05, 0.45, diff) * rand(0.7, 1.3);
       // candidates with room; always leave >=1 lane free near spawn
       const free = [];
-      for (let l = 0; l < this.lanes; l++) if (!this._blocked(l)) free.push(l);
+      for (let l = 0; l < this.lanes; l++) if (!this._blocked(l, H)) free.push(l);
       if (free.length >= 2) {
         // never take the last free lane — keeps a way through
         const take = free.length === this.lanes ? randi(1, 2) : 1;
@@ -764,9 +764,11 @@ class TrafficManager {
           const lane = free.splice(li, 1)[0];
           const kind = pick(TRAFFIC_KINDS);
           this.list.push({
-            lane, fx: (lane + 0.5) / this.lanes, y: -130, prevY: -130,
+            lane, fx: (lane + 0.5) / this.lanes, y: H + 130, prevY: H + 130,
             w: kind.w, h: kind.h, color: kind.color, type: kind.type,
-            v: rand(kind.vMin, kind.vMax) + diff * 40,
+            // upward speed (px/s, negative y): always faster than the scroll
+            // so cars zoom up past you — same direction, no reversing look
+            vr: -(rand(150, 260) + diff * 90),
             seed: randi(1, 99999), wob: rand(0, 6.28), counted: false, nearLock: 0,
           });
         }
@@ -774,14 +776,14 @@ class TrafficManager {
     }
     for (const c of this.list) {
       c.prevY = c.y;
-      c.y += (playerSpeed - c.v) * dt;
+      c.y += c.vr * dt;
       c.wob += dt * 2;
       if (c.nearLock > 0) c.nearLock -= dt;
     }
     // cull
     for (let i = this.list.length - 1; i >= 0; i--) {
       const c = this.list[i];
-      if (c.y > 950 || c.y < -420) this.list.splice(i, 1);
+      if (c.y < -320 || c.y > H + 320) this.list.splice(i, 1);
     }
   }
 }
@@ -1358,7 +1360,7 @@ class Game {
       p.dist += this.speed * dt * CFG.distPerPx;
       p.score += this.speed * dt * CFG.scorePerPx;
 
-      this.traffic.update(dt, this.speed, this.elapsed);
+      this.traffic.update(dt, this.elapsed, this.H);
       this.coins.update(dt, this.speed, this.traffic);
 
       // coins pickup
@@ -1381,7 +1383,8 @@ class Game {
         const hitX = dx < (pw + c.w) * 0.36;
         const hitY = dy < (ph + c.h) * 0.38;
         if (p.invuln <= 0 && hitX && hitY) { this.crash(); break; }
-        if (!c.counted && c.prevY < p.y && c.y >= p.y && c.nearLock <= 0) {
+        // traffic zooms upward past you: crossing is prevY > p.y -> y <= p.y
+        if (!c.counted && c.prevY > p.y && c.y <= p.y && c.nearLock <= 0) {
           const gap = dx - (pw + c.w) / 2;
           if (!hitX && gap < 22) {
             c.counted = true; c.nearLock = 1;
@@ -1391,10 +1394,10 @@ class Game {
             this.audio.near();
             this.popup(p.combo >= 3 ? 'ياااه! سلسلة! +' + ar(bonus) : 'ياااه! +' + ar(bonus), true);
             this.parts.dust(p.x, p.y, 6);
-          } else if (c.y > p.y + 120 && dx > (pw + c.w) / 2) {
+          } else if (dx > (pw + c.w) / 2) {
             c.counted = true; p.score += CFG.overScore; p.overN++;
           }
-        } else if (!c.counted && c.y > p.y + 140) {
+        } else if (!c.counted && c.y < p.y - 140) {
           c.counted = true;
           if (dx > (pw + c.w) / 2) { p.score += CFG.overScore; p.overN++; }
         }
@@ -1444,10 +1447,10 @@ class Game {
       ctx.fillText('ج', 0.5, 4);
       ctx.restore();
     }
-    // traffic — oncoming, facing the player (headlights toward you)
+    // traffic — same direction as you, faster, zooming upward past you
     for (const c of this.traffic.list) {
       const x = this.laneCenters[c.lane] + Math.sin(c.wob) * 1.5;
-      drawCar(ctx, { x, y: c.y, w: c.w, h: c.h, color: c.color, type: c.type, seed: c.seed, tilt: Math.sin(c.wob) * 0.02, spin: this.wheel, flip: true, _j: c._j || (c._j = wobbles(c.seed)) });
+      drawCar(ctx, { x, y: c.y, w: c.w, h: c.h, color: c.color, type: c.type, seed: c.seed, tilt: Math.sin(c.wob) * 0.02, spin: this.wheel, _j: c._j || (c._j = wobbles(c.seed)) });
     }
     this.remoteView.draw(ctx, this);
     // player
