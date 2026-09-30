@@ -1035,7 +1035,7 @@ class Game {
     this.player.y = this.H - CFG.playerY;
     $('lobby').classList.add('hidden'); $('gameover').classList.add('hidden');
     $('hud').classList.remove('hidden'); $('liveTag').classList.remove('hidden');
-    if (window.innerWidth < 700 || 'ontouchstart' in window) $('touchControls').classList.remove('hidden');
+    $('touchControls').classList.remove('hidden'); // slider + buttons on all screens
     this._syncSteer();
     this.bigMsg('السباق بدأ!');
   }
@@ -1236,12 +1236,15 @@ class Game {
       ctx.fillText('ج', 0.5, 4);
       ctx.restore();
     }
+    // remotes first (ghosts, slightly transparent), then solid traffic over them
+    ctx.save(); ctx.globalAlpha = 0.92;
+    this.remoteView.draw(ctx, this);
+    ctx.restore();
     // traffic — ok/ prototype cars
     for (const c of this.traffic.list) {
       const x = this.laneCenters[c.lane] + Math.sin(c.wob) * 1.5;
       drawCar(ctx, c.style, x, c.y, Math.sin(c.wob) * 0.02, this.elapsed);
     }
-    this.remoteView.draw(ctx, this);
     // player
     const p = this.player;
     if (p && (this.state === 'racing' || this.state === 'over-anim')) {
