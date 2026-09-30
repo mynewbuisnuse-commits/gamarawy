@@ -689,7 +689,7 @@ class RemoteView {
       const y = game.player.y - v.dy - 190;
       if (y < -80 || y > game.H + 80) return;
       // rivals are ghosts: clearly see-through so they never read as a pile-up
-      ctx.save(); ctx.globalAlpha = 0.55;
+      ctx.save(); ctx.globalAlpha = 0.42;
       drawCar(ctx, v.style, x, y, 0, game.elapsed);
       ctx.restore();
       const nm = String(p.n || 'سواق').slice(0, 12);
