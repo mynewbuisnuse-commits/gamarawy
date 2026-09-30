@@ -29,8 +29,8 @@ const CFG = {
   canvasHMin: 700,
   canvasHMax: 900,
   playerY: 186,          // distance from bottom
-  baseSpeed: 255,        // px/s world scroll at t=0
-  maxExtraSpeed: 265,    // added over ~75s
+  baseSpeed: 320,        // px/s world scroll at t=0
+  maxExtraSpeed: 480,    // added over ~75s (cruise tops at 800)
   rampTime: 75,
   scorePerPx: 0.045,     // score trickle per px scrolled
   distPerPx: 0.055,
@@ -38,7 +38,7 @@ const CFG = {
   nearScore: 100,
   overScore: 25,
   laneCooldown: 0.14,    // s between lane changes
-  gasBoost: 0.45,        // gas pedal adds up to +45% over cruise
+  gasBoost: 0.8,         // gas pedal adds up to +80% over cruise (~1440 top)
   brakeCut: 0.55,        // brake pedal cuts down to 45% of cruise
   accelUp: 1.8,          // how fast speed rises toward target
   accelDown: 3.5,        // brakes bite harder than the engine pulls
@@ -575,11 +575,13 @@ class TrafficManager {
     for (const c of this.list) if (c.lane === lane && c.y > H - 130) return true;
     return false;
   }
-  update(dt, elapsed, H) {
+  update(dt, speed, elapsed, H) {
     this.timer -= dt;
     const diff = clamp(elapsed / CFG.rampTime, 0, 1);
     if (this.timer <= 0) {
-      this.timer = lerp(1.05, 0.45, diff) * rand(0.7, 1.3);
+      // spawn density follows road speed so fast driving stays busy
+      const density = clamp(300 / Math.max(200, speed), 0.45, 1.4);
+      this.timer = lerp(1.05, 0.45, diff) * rand(0.7, 1.3) * density;
       // candidates with room; always leave >=1 lane free near spawn
       const free = [];
       for (let l = 0; l < this.lanes; l++) if (!this._blocked(l, H)) free.push(l);
@@ -594,9 +596,9 @@ class TrafficManager {
           this.list.push({
             lane, fx: (lane + 0.5) / this.lanes, y: H + 130, prevY: H + 130,
             style: okStyle(seed, kind), type: kind,
-            // upward speed (px/s, negative y): always faster than the scroll
-            // so cars zoom up past you — same direction, no reversing look
-            vr: -(rand(150, 260) + diff * 90),
+            // upward speed: always faster than the scroll, scales a bit
+            // with road speed so boosting stays spicy
+            vr: -(rand(150, 260) + diff * 90 + speed * 0.12),
             seed, wob: rand(0, 6.28), counted: false, nearLock: 0,
           });
         }
@@ -1252,7 +1254,7 @@ class Game {
       p.dist += this.speed * dt * CFG.distPerPx;
       p.score += this.speed * dt * CFG.scorePerPx;
 
-      this.traffic.update(dt, this.elapsed, this.H);
+      this.traffic.update(dt, this.speed, this.elapsed, this.H);
       this.coins.update(dt, this.speed, this.traffic);
 
       // coins pickup
@@ -1307,7 +1309,7 @@ class Game {
       $('hudDist').textContent = ar(Math.floor(p.dist)) + ' م';
       $('hudRank').textContent = '#' + ar(this.liveRank());
       const sf = $('speedFill');
-      if (sf) sf.style.width = (clamp((this.speed - 110) / (760 - 110), 0, 1) * 100).toFixed(1) + '%';
+      if (sf) sf.style.width = (clamp((this.speed - 110) / (1450 - 110), 0, 1) * 100).toFixed(1) + '%';
     } else if (this.state === 'over-anim') {
       const p = this.player;
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.4);
@@ -1335,6 +1337,18 @@ class Game {
     ctx.save();
     if (this.shake > 0) ctx.translate(rand(-this.shake, this.shake) * 0.5, rand(-this.shake, this.shake) * 0.5);
     this.world.draw(ctx);
+    // speed streaks past ~650px/s: more speed, more streaks
+    if (this.state === 'racing' && this.speed > 650) {
+      const n = Math.min(14, ((this.speed - 650) / 60) | 0);
+      ctx.strokeStyle = 'rgba(255,250,235,.10)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const sx = rand(0, this.W), sy = rand(0, this.H), ln = rand(40, 120);
+        ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + ln);
+      }
+      ctx.stroke();
+    }
     // coins
     // coins: brass جنيه with inner ring + shine
     for (const c of this.coins.list) {
