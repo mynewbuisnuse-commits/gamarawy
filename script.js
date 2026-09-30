@@ -46,14 +46,7 @@ const CFG = {
 
 const CAR_COLORS = ['#2e7ab8', '#c94f43', '#2f8f83', '#e9b44c', '#7a8450', '#8d4a7a'];
 
-const TRAFFIC_KINDS = [
-  { type: 'hatch',   color: '#c94f43', w: 50, h: 84, vMin: 130, vMax: 200 },
-  { type: 'sedan',   color: '#7a8450', w: 52, h: 92, vMin: 120, vMax: 190 },
-  { type: 'taxi',    color: '#e9b44c', w: 52, h: 92, vMin: 150, vMax: 220 },
-  { type: 'compact', color: '#8d99ae', w: 48, h: 80, vMin: 140, vMax: 210 },
-  { type: 'pickup',  color: '#9c4e24', w: 54, h: 98, vMin: 110, vMax: 170 },
-  { type: 'van',     color: '#efe0bd', w: 56, h: 102, vMin: 100, vMax: 160 },
-];
+const TRAFFIC_TYPES = ['hatch', 'sedan', 'taxi', 'old', 'pickup', 'van'];
 
 const SHOPS = ['فول عم فوزي', 'كشري التحرير', 'قهوة عبدو', 'فرن بلدي', 'عصير قصب', 'مكتبة النجاح', 'حلاق النجوم', 'بقالة الأمانة'];
 const BOT_NAMES = ['عمر', 'محمد', 'يوسف'];
@@ -413,451 +406,93 @@ class Particles {
   clear() { this.list.length = 0; }
 }
 
-/* ---------------- 7b. CarSprites — ready top-down art (Unlucky Studio, royalty-free) -------- */
-const SPRITE_FILES = {
-  audi: 'assets/cars/audi.png',
-  car: 'assets/cars/car.png',
-  viper: 'assets/cars/viper.png',
-  taxi: 'assets/cars/taxi.png',
-  van: 'assets/cars/van.png',
-  pickup: 'assets/cars/pickup.png',
-  truck: 'assets/cars/truck.png',
+/* ---------------- 8. Cars — ported from the ok/ prototype ----------------
+   Lightweight vector cars: wobble polygon body + ink outline.
+   dims scaled x1.65 from the 360-wide prototype to our 480 canvas. */
+const OK_KINDS = {
+  hatch:  { w: 46, h: 76, hood: 0.28 },
+  sedan:  { w: 50, h: 92, hood: 0.30 },
+  taxi:   { w: 50, h: 89, hood: 0.30 },
+  old:    { w: 45, h: 79, hood: 0.36 },
+  pickup: { w: 53, h: 102, hood: 0.26 },
+  van:    { w: 56, h: 112, hood: 0.15 },
 };
-const TYPE_SPRITE = { sedan: 'car', hatch: 'viper', compact: 'audi', taxi: 'taxi', pickup: 'pickup', van: 'van' };
-
-const CarSprites = {
-  ready: false,
-  imgs: {},   // key -> {img, sx, sy, sw, sh}
-  tinted: {}, // colorHex -> entry (hue-shifted Audi)
-  load() {
-    const keys = Object.keys(SPRITE_FILES);
-    return new Promise((resolve) => {
-      if (!keys.length) return resolve();
-      let done = 0;
-      const fin = () => { if (++done === keys.length) { this.ready = true; resolve(); } };
-      keys.forEach((k) => {
-        const img = new Image();
-        img.onload = () => { this.imgs[k] = this._crop(img); fin(); };
-        img.onerror = () => fin();
-        img.src = SPRITE_FILES[k];
-      });
-    });
-  },
-  _crop(img) {
-    // tight bounding box of visible pixels so aspect stays correct
-    try {
-      const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
-      const x = c.getContext('2d', { willReadFrequently: true });
-      x.drawImage(img, 0, 0);
-      const d = x.getImageData(0, 0, c.width, c.height).data;
-      let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
-      for (let yy = 0; yy < c.height; yy += 2) for (let xx = 0; xx < c.width; xx += 2) {
-        if (d[(yy * c.width + xx) * 4 + 3] > 8) {
-          if (xx < x0) x0 = xx; if (xx > x1) x1 = xx;
-          if (yy < y0) y0 = yy; if (yy > y1) y1 = yy;
-        }
-      }
-      if (x1 < 0) return { img, sx: 0, sy: 0, sw: img.width, sh: img.height };
-      return { img, sx: x0, sy: y0, sw: x1 - x0 + 2, sh: y1 - y0 + 2 };
-    } catch { return { img, sx: 0, sy: 0, sw: img.width, sh: img.height }; }
-  },
-  get(key) { return this.imgs[key] || null; },
-  /** hue-shift the red Audi base into any player/remote color (cached) */
-  tintedAudi(colorHex) {
-    if (this.tinted[colorHex]) return this.tinted[colorHex];
-    if (!this.imgs.audi) return null;
-    const cv = hueShiftCanvas(this.imgs.audi.img, colorHex);
-    if (!cv) return null;
-    const entry = this._crop(cv);
-    this.tinted[colorHex] = entry;
-    return entry;
-  },
-  draw(ctx, entry, x, y, w, h, tilt) {
-    if (!entry) return false;
-    const iw = entry.img.naturalWidth || entry.img.width;
-    if (!iw || !entry.sw) return false;
-    ctx.save();
-    ctx.translate(x, y);
-    if (tilt) ctx.rotate(tilt);
-    ctx.fillStyle = 'rgba(30,23,16,.30)';
-    ctx.beginPath(); ctx.ellipse(2, h / 2 - 2, w / 2, 6, 0, 0, 6.2832); ctx.fill();
-    const s = Math.min(w / entry.sw, h / entry.sh);
-    const dw = entry.sw * s, dh = entry.sh * s;
-    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-    try {
-      ctx.drawImage(entry.img, entry.sx, entry.sy, entry.sw, entry.sh, -dw / 2, -dh / 2, dw, dh);
-    } catch { ctx.restore(); return false; }
-    ctx.restore();
-    return true;
-  },
-};
-
-/** shift saturated pixels of img toward targetHex hue; glass/tires/lights untouched */
-function hueShiftCanvas(img, targetHex) {
-  try {
-    const tn = parseInt(targetHex.slice(1), 16);
-    const tH = rgbToHsl((tn >> 16) & 255, (tn >> 8) & 255, tn & 255)[0];
-    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
-    const x = c.getContext('2d', { willReadFrequently: true });
-    x.drawImage(img, 0, 0);
-    const id = x.getImageData(0, 0, c.width, c.height), d = id.data;
-    for (let i = 0; i < d.length; i += 4) {
-      if (d[i + 3] < 8) continue;
-      const hsl = rgbToHsl(d[i], d[i + 1], d[i + 2]);
-      if (hsl[1] < 0.18 || hsl[2] < 0.08 || hsl[2] > 0.93) continue;
-      const rgb = hslToRgb(tH, Math.min(1, hsl[1] * 1.05), hsl[2]);
-      d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2];
-    }
-    x.putImageData(id, 0, 0);
-    return c;
-  } catch { return null; }
-}
-function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
-  let h = 0, s = 0; const l = (mx + mn) / 2;
-  if (mx !== mn) {
-    const dd = mx - mn;
-    s = l > 0.5 ? dd / (2 - mx - mn) : dd / (mx + mn);
-    if (mx === r) h = ((g - b) / dd + (g < b ? 6 : 0)) / 6;
-    else if (mx === g) h = ((b - r) / dd + 2) / 6;
-    else h = ((r - g) / dd + 4) / 6;
-  }
-  return [h, s, l];
-}
-function hslToRgb(h, s, l) {
-  const f = (n) => {
-    const k = (n + h * 12) % 12;
-    const a = s * Math.min(l, 1 - l);
-    return Math.round((l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255);
+const OK_PAINTS = ['#d98b2b', '#b8453a', '#7a9e5a', '#e9dfc8', '#8a6fa8', '#3f8f8b', '#c9a227'];
+const OK_REMOTE_KINDS = ['hatch', 'sedan', 'old', 'taxi'];
+function okStyle(seed, kind, color) {
+  const k = OK_KINDS[kind] || OK_KINDS.sedan;
+  const sd = seed | 0;
+  return {
+    w: k.w, h: k.h, hood: k.hood, kind, seed: sd || 1,
+    color: color || (kind === 'taxi' ? '#e6b422' : OK_PAINTS[Math.floor(hash01(sd + 7) * OK_PAINTS.length) % OK_PAINTS.length]),
   };
-  return [f(0), f(8), f(4)];
 }
-
-/* ---------------- 8. CarArt — hand-inked, each type has a silhouette ---------------- */
-function setInk(ctx, w) {
-  ctx.strokeStyle = '#2a2018'; ctx.lineWidth = w;
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+function playerStyle(color, seed) {
+  return { w: 50, h: 88, hood: 0.3, kind: 'player', seed: (seed | 0) || 3, color };
 }
-/** lighten/darken hex color by amt (-1..1) */
-function shade(hex, amt) {
-  const n = parseInt(hex.slice(1), 16);
-  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  if (amt >= 0) { r += (255 - r) * amt; g += (255 - g) * amt; b += (255 - b) * amt; }
-  else { r *= 1 + amt; g *= 1 + amt; b *= 1 + amt; }
-  return 'rgb(' + (r | 0) + ',' + (g | 0) + ',' + (b | 0) + ')';
+function okWob(c, pts, s, j) {
+  c.beginPath();
+  pts.forEach(([x, y], i) => {
+    x += (hash01(s + i) - 0.5) * j * 2;
+    y += (hash01(s + i + 40) - 0.5) * j * 2;
+    if (i) c.lineTo(x, y); else c.moveTo(x, y);
+  });
+  c.closePath();
 }
-/** deterministic wobble offsets for a seed */
-function wobbles(seed) {
-  const out = [];
-  for (let k = 1; k <= 12; k++) out.push((hash01((seed | 0) * 31 + k * 17) - 0.5) * 4);
-  return out;
+function okInked(c, col, lw) {
+  c.fillStyle = col; c.fill();
+  c.lineWidth = lw || 2; c.strokeStyle = '#2a2018'; c.lineJoin = 'round'; c.stroke();
 }
-function traceBody(ctx, x, y, w, h, j, type) {
-  // per-type silhouette: van/pickup are boxier, hatch is stubby, sedan is sleek
-  const boxy = (type === 'van' || type === 'pickup') ? 1 : 0;
-  const nose = boxy ? 6 : 10;   // front taper
-  const tail = boxy ? 6 : 8;    // rear taper
-  ctx.beginPath();
-  ctx.moveTo(x - w / 2 + 4 + j[0], y - h / 2 + nose);
-  ctx.quadraticCurveTo(x - w / 2 - 2 + j[1], y - h * 0.1, x - w / 2 + 3 + j[2], y + h / 2 - tail);
-  ctx.quadraticCurveTo(x - w / 2 + 9, y + h / 2 + 2 + j[3], x, y + h / 2 + 1 + j[4]);
-  ctx.quadraticCurveTo(x + w / 2 - 8, y + h / 2 + 2, x + w / 2 - 3 + j[5], y + h / 2 - tail);
-  ctx.quadraticCurveTo(x + w / 2 + 2 + j[6], y - h * 0.1, x + w / 2 - 5 + j[7], y - h / 2 + nose);
-  ctx.quadraticCurveTo(x + w / 4, y - h / 2 - 3 + j[8], x, y - h / 2 - 2 + j[9]);
-  ctx.quadraticCurveTo(x - w / 4, y - h / 2 - 3, x - w / 2 + 4 + j[0], y - h / 2 + nose);
-  ctx.closePath();
-}
-
-function drawCar(ctx, o) {
-  const w = o.w, h = o.h;
-  const seed = o.seed | 0 || 1;
-  const j = o._j || (o._j = wobbles(seed));
-  const type = o.type || 'sedan';
-  const boxy = (type === 'van' || type === 'pickup');
-  const flip = !!o.flip; // optional 180° turn (kept for future use)
-  ctx.save();
-  ctx.translate(o.x, o.y);
-  if (o.tilt) ctx.rotate(o.tilt);
-  if (flip) ctx.rotate(Math.PI);
-  // readable text even when the car is flipped
-  const inkText = (txt, x, y, font) => {
-    ctx.save(); ctx.translate(x, y); if (flip) ctx.rotate(Math.PI);
-    ctx.fillStyle = '#2a2018'; ctx.font = font; ctx.textAlign = 'center';
-    ctx.fillText(txt, 0, 0); ctx.restore();
-  };
-  const paperText = (txt, x, y, font) => {
-    ctx.save(); ctx.translate(x, y); if (flip) ctx.rotate(Math.PI);
-    ctx.fillStyle = '#f6ecd4'; ctx.font = font; ctx.textAlign = 'center';
-    ctx.fillText(txt, 0, 0); ctx.restore();
-  };
-  // --- ground shadow: layered soft (lift) + hard ink offset
-  ctx.fillStyle = 'rgba(30,23,16,.14)';
-  ctx.beginPath(); ctx.ellipse(5, h / 2 + 5, w / 2 + 8, 11, 0, 0, 6.2832); ctx.fill();
-  ctx.fillStyle = 'rgba(30,23,16,.22)';
-  ctx.beginPath(); ctx.ellipse(4, h / 2 + 3, w / 2 + 4, 9, 0, 0, 6.2832); ctx.fill();
-  ctx.fillStyle = 'rgba(30,23,16,.30)';
-  ctx.beginPath(); ctx.ellipse(1, h / 2 - 1, w / 2, 6, 0, 0, 6.2832); ctx.fill();
-
-  // --- wheels: 3D tire + hub + lugs, with arch shadows
-  const wy = h * 0.18;
-  const spin = (o.spin || 0) % 6.2832;
-  for (let s = -1; s <= 1; s += 2) {
-    for (const yy of [wy, -wy]) {
-      const wx = s * (w / 2 + 1);
-      // arch shadow carved into body
-      ctx.fillStyle = 'rgba(20,14,10,.45)';
-      ctx.beginPath(); ctx.ellipse(wx - s * 2, yy, 8.5, 15, 0, 0, 6.2832); ctx.fill();
-      ctx.save(); ctx.translate(wx, yy);
-      const tg = ctx.createLinearGradient(-7, 0, 7, 0);
-      tg.addColorStop(0, '#0f0c08'); tg.addColorStop(0.45, '#2c241a');
-      tg.addColorStop(0.62, '#3d3325'); tg.addColorStop(1, '#0f0c08');
-      ctx.fillStyle = tg;
-      ctx.beginPath(); ctx.ellipse(0, 0, 7.5, 13, 0, 0, 6.2832); ctx.fill();
-      setInk(ctx, 2); ctx.stroke();
-      // hubcap with depth
-      const hg = ctx.createLinearGradient(-3, -6, 3, 6);
-      hg.addColorStop(0, '#efe7d6'); hg.addColorStop(0.55, '#c9bfae'); hg.addColorStop(1, '#8f8574');
-      ctx.fillStyle = hg;
-      ctx.beginPath(); ctx.ellipse(0, 0, 3.6, 6.2, 0, 0, 6.2832); ctx.fill();
-      ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 1.4; ctx.stroke();
-      // rotating lug hint
-      const la = spin * 2;
-      ctx.fillStyle = '#2a2018';
-      ctx.beginPath(); ctx.arc(Math.cos(la) * 1.8, Math.sin(la) * 3.4, 1, 0, 6.2832); ctx.fill();
-      ctx.beginPath(); ctx.arc(-Math.cos(la) * 1.8, -Math.sin(la) * 3.4, 1, 0, 6.2832); ctx.fill();
-      // tire shine
-      ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1.2;
-      ctx.beginPath(); ctx.ellipse(-2, 0, 4.5, 10, 0, 3.6, 5.6); ctx.stroke();
-      ctx.restore();
-    }
+/* drawCar(c, style, x, y, tilt, t) — t is elapsed seconds (wheel spin + idle bob) */
+function drawCar(c, s, x, y, tilt, t) {
+  const w = s.w, h = s.h, hw = w / 2, hh = h / 2, hd = s.hood * h, sd = s.seed || 1;
+  c.save(); c.translate(x, y);
+  c.fillStyle = 'rgba(42,33,24,.28)';
+  c.beginPath(); c.ellipse(5, 6, hw + 3, hh + 2, 0, 0, 6.2832); c.fill();
+  c.rotate(tilt || 0); c.translate(0, Math.sin(t * 10 + sd) * 0.8);
+  c.fillStyle = '#2a2018';
+  const wr = (t * 40) % 8;
+  for (const sx of [-1, 1]) for (const sy of [-0.6, 0.6]) {
+    c.fillRect(sx * hw - (sx > 0 ? 2 : 3), sy * hh - 5, 5, 10);
+    c.fillStyle = '#8a7d6b';
+    c.fillRect(sx * hw - (sx > 0 ? 2 : 3), sy * hh - 5 + wr % 10, 5, 1.5);
+    c.fillStyle = '#2a2018';
   }
-  // --- side mirrors
-  ctx.fillStyle = shade(o.color, -0.25);
-  ctx.fillRect(-w / 2 - 4, -h * 0.12, 5, 7);
-  ctx.fillRect(w / 2 - 1, -h * 0.12, 5, 7);
-  setInk(ctx, 1.6);
-  ctx.strokeRect(-w / 2 - 4, -h * 0.12, 5, 7);
-  ctx.strokeRect(w / 2 - 1, -h * 0.12, 5, 7);
-
-  // --- body base: cylindrical pseudo-3D shading (light from upper-left)
-  traceBody(ctx, 0, 0, w, h, j, type);
-  const bg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
-  bg.addColorStop(0, shade(o.color, -0.38));
-  bg.addColorStop(0.22, shade(o.color, -0.08));
-  bg.addColorStop(0.42, shade(o.color, 0.22));
-  bg.addColorStop(0.62, o.color);
-  bg.addColorStop(1, shade(o.color, -0.42));
-  ctx.fillStyle = bg; ctx.fill();
-  ctx.save(); traceBody(ctx, 0, 0, w, h, j, type); ctx.clip();
-  // spine highlight down the middle = dome of the body
-  const sg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
-  sg.addColorStop(0, 'rgba(255,252,240,.30)');
-  sg.addColorStop(0.35, 'rgba(255,252,240,.07)');
-  sg.addColorStop(0.7, 'rgba(0,0,0,.06)');
-  sg.addColorStop(1, 'rgba(0,0,0,.16)');
-  ctx.fillStyle = sg;
-  ctx.fillRect(-w * 0.18, -h / 2, w * 0.36, h);
-  // door seam + handles
-  ctx.strokeStyle = 'rgba(42,32,24,.45)'; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.moveTo(-w / 2 + 5, h * 0.02); ctx.lineTo(w / 2 - 5, h * 0.02); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(-w / 2 + 5, h * 0.10); ctx.lineTo(w / 2 - 5, h * 0.10); ctx.stroke();
-  ctx.fillStyle = 'rgba(42,32,24,.55)';
-  ctx.fillRect(-9, h * 0.045, 7, 2.4);
-  ctx.fillRect(2, h * 0.045, 7, 2.4);
-  ctx.restore();
-  setInk(ctx, 3); traceBody(ctx, 0, 0, w, h, j, type); ctx.stroke();
-
-  // --- bumpers with top sheen
-  const bw = w * 0.72;
-  for (const by of [-h / 2 + 3, h / 2 - 2]) {
-    const bgr = ctx.createLinearGradient(0, by - 4.5, 0, by + 4.5);
-    bgr.addColorStop(0, '#5a5148'); bgr.addColorStop(0.5, '#3a332b'); bgr.addColorStop(1, '#211b14');
-    ctx.fillStyle = bgr;
-    ctx.beginPath(); ctx.ellipse(0, by, bw / 2, 4.5, 0, 0, 6.2832); ctx.fill();
-    setInk(ctx, 2);
-    ctx.beginPath(); ctx.ellipse(0, by, bw / 2, 4.5, 0, 0, 6.2832); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.ellipse(0, by - 1.5, bw / 2 - 3, 2, 0, 3.4, 6); ctx.stroke();
+  okWob(c, [[-hw, hh], [-hw, -hh + hd * 0.6], [-hw + 4, -hh], [hw - 4, -hh], [hw, -hh + hd * 0.6], [hw, hh]], sd, 1);
+  okInked(c, s.color);
+  if (s.kind === 'pickup') {
+    okWob(c, [[-hw + 3, 2], [hw - 3, 2], [hw - 3, hh - 3], [-hw + 3, hh - 3]], sd + 5, 0.8);
+    okInked(c, 'rgba(0,0,0,.13)', 1.5);
+    c.fillStyle = '#8a5a2b'; c.fillRect(-6, hh - 18, 10, 9); c.strokeRect(-6, hh - 18, 10, 9);
   }
-
-  // --- glasshouse: deep gradient glass + hot reflection
-  const glassG = (x0, y0, x1, y1) => {
-    const gg = ctx.createLinearGradient(x0, y0, x1, y1);
-    gg.addColorStop(0, '#e8f4f8'); gg.addColorStop(0.35, '#bcd9e4');
-    gg.addColorStop(0.75, '#7fa5b8'); gg.addColorStop(1, '#5d8296');
-    return gg;
-  };
-  setInk(ctx, 2.4);
-  if (boxy) {
-    // tall windshield + side glass band
-    ctx.fillStyle = glassG(0, -h * 0.36, 0, -h * 0.36 + 22);
-    ctx.beginPath(); ctx.rect(-w / 2 + 7, -h * 0.36, w - 14, 22); ctx.fill(); ctx.stroke();
-    // reflection streak
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 12, -h * 0.36 + 18); ctx.lineTo(-w / 2 + 24, -h * 0.36 + 4); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 18, -h * 0.36 + 19); ctx.lineTo(-w / 2 + 28, -h * 0.36 + 7); ctx.stroke();
-  } else {
-    // windshield
-    ctx.fillStyle = glassG(0, -h * 0.30, 0, -h * 0.06);
-    ctx.beginPath();
-    ctx.moveTo(-w / 2 + 8, -h * 0.30);
-    ctx.lineTo(w / 2 - 8, -h * 0.30);
-    ctx.lineTo(w / 2 - 12, -h * 0.06);
-    ctx.lineTo(-w / 2 + 12, -h * 0.06);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 13, -h * 0.09); ctx.lineTo(-w / 2 + 23, -h * 0.27); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 19, -h * 0.08); ctx.lineTo(-w / 2 + 27, -h * 0.24); ctx.stroke();
-    // rear window
-    ctx.fillStyle = glassG(0, h * 0.20, 0, h * 0.34);
-    setInk(ctx, 2.2);
-    ctx.beginPath();
-    ctx.moveTo(-w / 2 + 10, h * 0.20); ctx.lineTo(w / 2 - 10, h * 0.20);
-    ctx.lineTo(w / 2 - 8, h * 0.34); ctx.lineTo(-w / 2 + 8, h * 0.34);
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    // roof panel: domed gradient + left edge light
-    const rg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
-    rg.addColorStop(0, shade(o.color, 0.30)); rg.addColorStop(0.4, shade(o.color, 0.16));
-    rg.addColorStop(0.75, shade(o.color, -0.02)); rg.addColorStop(1, shade(o.color, -0.22));
-    ctx.fillStyle = rg;
-    ctx.beginPath();
-    ctx.moveTo(-w / 2 + 11, -h * 0.04); ctx.lineTo(w / 2 - 11, -h * 0.04);
-    ctx.lineTo(w / 2 - 10, h * 0.18); ctx.lineTo(-w / 2 + 10, h * 0.18);
-    ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = 'rgba(42,32,24,.4)'; ctx.lineWidth = 1.4; ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 13, -h * 0.03); ctx.lineTo(-w / 2 + 12, h * 0.17); ctx.stroke();
+  if (s.kind === 'van') {
+    okWob(c, [[-hw + 3, -hh + hd + 12], [hw - 3, -hh + hd + 12], [hw - 3, hh - 3], [-hw + 3, hh - 3]], sd + 7, 0.8);
+    okInked(c, 'rgba(255,255,255,.33)', 1.5);
+    c.beginPath(); c.moveTo(0, -hh + hd + 12); c.lineTo(0, hh - 3); c.stroke();
   }
-
-  // --- type personality
-  if (type === 'taxi') {
-    ctx.save(); ctx.beginPath(); ctx.rect(-w / 2 + 2, -3, w - 4, 9); ctx.clip();
-    for (let i = 0; i < 6; i++) {
-      ctx.fillStyle = i % 2 ? '#1e1710' : '#f6ecd4';
-      ctx.fillRect(-w / 2 + 2 + (i * (w - 4)) / 6, -3, (w - 4) / 6, 9);
-    }
-    ctx.restore();
-    setInk(ctx, 2); ctx.strokeRect(-w / 2 + 2, -3, w - 4, 9);
-    // roof sign with tiny dome light
-    ctx.fillStyle = '#f6ecd4'; ctx.fillRect(-12, -h * 0.20, 24, 10);
-    setInk(ctx, 2); ctx.strokeRect(-12, -h * 0.20, 24, 10);
-    inkText('تاكسي', 0, -h * 0.20 + 7.5, 'bold 7.5px "El Messiri",sans-serif');
-  } else if (type === 'pickup') {
-    // open bed + crates + spare
-    ctx.fillStyle = '#6b4c2c'; ctx.fillRect(-w / 2 + 7, h * 0.14, w - 14, 16);
-    setInk(ctx, 2); ctx.strokeRect(-w / 2 + 7, h * 0.14, w - 14, 16);
-    ctx.fillStyle = '#8a6b42';
-    ctx.fillRect(-w / 2 + 10, h * 0.16, 10, 8);
-    ctx.fillRect(w / 2 - 20, h * 0.18, 11, 8);
-    setInk(ctx, 1.4);
-    ctx.strokeRect(-w / 2 + 10, h * 0.16, 10, 8);
-    ctx.strokeRect(w / 2 - 20, h * 0.18, 11, 8);
-    ctx.strokeStyle = 'rgba(42,32,24,.5)'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 10, h * 0.20); ctx.lineTo(-w / 2 + 20, h * 0.20); ctx.stroke();
-  } else if (type === 'van') {
-    ctx.strokeStyle = 'rgba(42,32,24,.5)'; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.moveTo(w / 2 - 6, -h * 0.1); ctx.lineTo(w / 2 - 6, h * 0.32); ctx.stroke();
-    inkText('توصيل', 0, h * 0.10, 'bold 9px "El Messiri",sans-serif');
-    // rear wiper hint
-    ctx.strokeStyle = 'rgba(42,32,24,.4)'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(0, h * 0.30); ctx.lineTo(8, h * 0.24); ctx.stroke();
-  } else if (type === 'hatch') {
-    // rear spoiler
-    ctx.fillStyle = shade(o.color, -0.3);
-    ctx.fillRect(-w / 2 + 2, h / 2 - 12, w - 4, 6);
-    setInk(ctx, 1.8); ctx.strokeRect(-w / 2 + 2, h / 2 - 12, w - 4, 6);
-    // star sticker
-    ctx.fillStyle = '#f6ecd4';
-    ctx.beginPath(); ctx.arc(8, h * 0.30, 6, 0, 6.2832); ctx.fill();
-    setInk(ctx, 1.6); ctx.stroke();
-    ctx.fillStyle = '#c94f43'; ctx.font = 'bold 8px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('★', 8, h * 0.30 + 3);
-  } else if (type === 'compact') {
-    // big round charm + flower sticker
-    ctx.fillStyle = '#f6ecd4';
-    ctx.beginPath(); ctx.arc(-w / 2 + 10, h * 0.28, 5, 0, 6.2832); ctx.fill();
-    setInk(ctx, 1.5); ctx.stroke();
-    ctx.fillStyle = '#7a8450'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('✿', -w / 2 + 10, h * 0.28 + 3);
-  } else {
-    // sedan chrome strip
-    ctx.strokeStyle = 'rgba(246,236,212,.65)'; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.moveTo(-w / 2 + 6, h * 0.16); ctx.lineTo(w / 2 - 6, h * 0.16); ctx.stroke();
+  if (s.kind === 'taxi') { c.fillStyle = '#fffaf0'; c.fillRect(-6, -2, 12, 6); c.strokeRect(-6, -2, 12, 6); }
+  okWob(c, [[-hw + 4, -hh + hd], [hw - 4, -hh + hd], [hw - 6, -hh + hd + 10], [-hw + 6, -hh + hd + 10]], sd + 2, 0.6);
+  okInked(c, '#bfe3e0', 1.5);
+  if (s.kind === 'sedan' || s.kind === 'hatch' || s.kind === 'old' || s.kind === 'taxi' || s.kind === 'player') {
+    okWob(c, [[-hw + 5, hh - 14], [hw - 5, hh - 14], [hw - 4, hh - 7], [-hw + 4, hh - 7]], sd + 3, 0.5);
+    okInked(c, '#9fcbc6', 1.5);
   }
-
-  if (o.isPlayer) {
-    // twin racing stripes over the roof
-    ctx.fillStyle = 'rgba(246,236,212,.92)';
-    ctx.fillRect(-6, -h * 0.045, 4.5, h * 0.23);
-    ctx.fillRect(1.5, -h * 0.045, 4.5, h * 0.23);
-    // racing number + flag + antenna
-    ctx.fillStyle = '#f6ecd4';
-    ctx.beginPath(); ctx.arc(w / 2 - 11, h * 0.30, 8.5, 0, 6.2832); ctx.fill();
-    setInk(ctx, 2); ctx.stroke();
-    ctx.fillStyle = '#2a2018'; ctx.font = 'bold 11px "Aref Ruqaa",serif'; ctx.textAlign = 'center';
-    ctx.fillText('٧', w / 2 - 11, h * 0.30 + 4);
-    ctx.fillStyle = '#c94f43'; ctx.fillRect(-w / 2 + 5, h * 0.28, 7, 4.5);
-    ctx.fillStyle = '#f6ecd4'; ctx.fillRect(-w / 2 + 5, h * 0.28 + 4.5, 7, 4.5);
-    ctx.fillStyle = '#1e1710'; ctx.fillRect(-w / 2 + 5, h * 0.28 + 9, 7, 4.5);
-    setInk(ctx, 1.2); ctx.strokeRect(-w / 2 + 5, h * 0.28, 7, 13.5);
-    // antenna
-    ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 1.8;
-    ctx.beginPath(); ctx.moveTo(w / 2 - 6, -h / 2 + 4); ctx.lineTo(w / 2 - 2, -h / 2 - 8); ctx.stroke();
-    ctx.fillStyle = '#c94f43';
-    ctx.beginPath(); ctx.arc(w / 2 - 2, -h / 2 - 9, 2.4, 0, 6.2832); ctx.fill();
-    // hood scratch (human touch)
-    ctx.strokeStyle = 'rgba(246,236,212,.55)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(-7, -h * 0.38); ctx.lineTo(3, -h * 0.34); ctx.stroke();
-  } else if (hash01(seed + 5) > 0.55) {
-    ctx.fillStyle = '#e9b44c';
-    ctx.beginPath(); ctx.arc(-w / 2 + 10, h * 0.32, 4.5, 0, 6.2832); ctx.fill();
-    setInk(ctx, 1.5); ctx.stroke();
+  c.fillStyle = '#fff3b0';
+  for (const sx of [-1, 1]) {
+    c.beginPath();
+    if (sd % 2 < 1) c.arc(sx * (hw - 5), -hh + 3, 2.6, 0, 6.2832);
+    else c.rect(sx * (hw - 5) - 2, -hh + 1, 4, 4);
+    c.fill(); c.lineWidth = 1.3; c.stroke();
   }
-  // --- lights with glow
-  const glow = (x, y, r, col) => {
-    const gr = ctx.createRadialGradient(x, y, 1, x, y, r * 2.6);
-    gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,235,160,0)');
-    ctx.fillStyle = gr;
-    ctx.beginPath(); ctx.arc(x, y, r * 2.6, 0, 6.2832); ctx.fill();
-  };
-  glow(-w / 2 + 9, -h / 2 + 7, 4.5, 'rgba(255,232,150,.55)');
-  glow(w / 2 - 9, -h / 2 + 7, 4.5, 'rgba(255,232,150,.55)');
-  ctx.fillStyle = '#ffedb0';
-  ctx.beginPath(); ctx.arc(-w / 2 + 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.fill();
-  ctx.beginPath(); ctx.arc(w / 2 - 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.9)';
-  ctx.beginPath(); ctx.arc(-w / 2 + 7.5, -h / 2 + 5.5, 1.5, 0, 6.2832); ctx.fill();
-  ctx.beginPath(); ctx.arc(w / 2 - 10.5, -h / 2 + 5.5, 1.5, 0, 6.2832); ctx.fill();
-  setInk(ctx, 2);
-  ctx.beginPath(); ctx.arc(-w / 2 + 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.stroke();
-  ctx.beginPath(); ctx.arc(w / 2 - 9, -h / 2 + 7, 4.6, 0, 6.2832); ctx.stroke();
-  ctx.fillStyle = '#d13b2e';
-  ctx.fillRect(-w / 2 + 4, h / 2 - 7, 9, 4.5);
-  ctx.fillRect(w / 2 - 13, h / 2 - 7, 9, 4.5);
-  setInk(ctx, 1.4);
-  ctx.strokeRect(-w / 2 + 4, h / 2 - 7, 9, 4.5);
-  ctx.strokeRect(w / 2 - 13, h / 2 - 7, 9, 4.5);
-  // front grille between headlights
-  ctx.fillStyle = '#241c12';
-  ctx.fillRect(-9, -h / 2 + 1, 18, 5);
-  setInk(ctx, 1.4); ctx.strokeRect(-9, -h / 2 + 1, 18, 5);
-  ctx.strokeStyle = 'rgba(246,236,212,.5)'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-7, -h / 2 + 3.5); ctx.lineTo(7, -h / 2 + 3.5); ctx.stroke();
-  // rear license plate (reads correctly thanks to flip-aware text)
-  ctx.fillStyle = '#f6ecd4';
-  ctx.fillRect(-9, h / 2 - 13, 18, 6);
-  setInk(ctx, 1.2); ctx.strokeRect(-9, h / 2 - 13, 18, 6);
-  ctx.save(); ctx.translate(0, h / 2 - 8.2); if (flip) ctx.rotate(Math.PI);
-  ctx.fillStyle = '#2a2018'; ctx.font = 'bold 5.5px "El Messiri",sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('مصر', 0, 0); ctx.restore();
-  // exhaust pipe, rear corner
-  ctx.fillStyle = '#1e1710';
-  ctx.fillRect(w / 2 - 12, h / 2 - 3, 6, 4);
-  setInk(ctx, 1.2); ctx.strokeRect(w / 2 - 12, h / 2 - 3, 6, 4);
-  ctx.restore();
+  c.strokeStyle = 'rgba(255,255,255,.67)'; c.lineWidth = 1.5;
+  c.beginPath(); c.moveTo(-hw + 6, -hh + 5); c.lineTo(-hw + 6, -hh + hd - 2); c.stroke();
+  c.strokeStyle = 'rgba(0,0,0,.33)'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(hw - 9, hh - 20); c.lineTo(hw - 4, hh - 26); c.stroke();
+  if (hash01(sd + 11) > 0.5) {
+    c.fillStyle = '#e0a82e'; c.beginPath(); c.arc(hw - 8, hh / 3, 2.5, 0, 6.2832); c.fill();
+    c.lineWidth = 1; c.strokeStyle = '#2a2018'; c.stroke();
+  }
+  c.restore();
 }
 
 /* ---------------- 9. Traffic (fair spawner) ---------------- */
@@ -883,14 +518,15 @@ class TrafficManager {
         for (let k = 0; k < take && free.length >= 2; k++) {
           const li = randi(0, free.length - 1);
           const lane = free.splice(li, 1)[0];
-          const kind = pick(TRAFFIC_KINDS);
+          const kind = pick(TRAFFIC_TYPES);
+          const seed = randi(1, 99999);
           this.list.push({
             lane, fx: (lane + 0.5) / this.lanes, y: H + 130, prevY: H + 130,
-            w: kind.w, h: kind.h, color: kind.color, type: kind.type,
+            style: okStyle(seed, kind), type: kind,
             // upward speed (px/s, negative y): always faster than the scroll
             // so cars zoom up past you — same direction, no reversing look
             vr: -(rand(150, 260) + diff * 90),
-            seed: randi(1, 99999), wob: rand(0, 6.28), counted: false, nearLock: 0,
+            seed, wob: rand(0, 6.28), counted: false, nearLock: 0,
           });
         }
       }
@@ -940,6 +576,7 @@ class Player {
     this.coinsN = 0; this.nearN = 0; this.overN = 0;
     this.combo = 0; this.comboT = 0;
     this.color = color; this.seed = randi(1, 99999);
+    this.style = playerStyle(color, this.seed);
     this.invuln = CFG.invulnTime;
     this.moveCool = 0;
   }
@@ -961,7 +598,12 @@ class RemoteView {
       if (!p || p.a === 0) return;
       seen.add(key);
       let v = this.items.get(key);
-      if (!v) { v = { dx: p.fx ?? 0.5, dy: 0 }; this.items.set(key, v); }
+      if (!v) {
+        // stable look per rival, like the ok/ prototype
+        const c0 = key.charCodeAt(0) || 0, c1 = key.charCodeAt(1) || 0, c2 = key.charCodeAt(2) || 0;
+        v = { dx: p.fx ?? 0.5, dy: 0, style: okStyle(c0 + c1, OK_REMOTE_KINDS[c2 % OK_REMOTE_KINDS.length]) };
+        this.items.set(key, v);
+      }
       const k1 = damp(10, dt), k2 = damp(7, dt);
       v.dx = lerp(v.dx, clamp(p.fx ?? 0.5, 0, 1), k1);
       const targetDy = clamp(((p.d || 0) - myDist) * 2.2, -420, 200);
@@ -979,14 +621,7 @@ class RemoteView {
       const x = game.laneX(laneF);
       const y = game.player.y - v.dy - 190;
       if (y < -80 || y > game.H + 80) return;
-      // personality from name hash so each rival keeps their look
-      const nm0 = String(p.n || 'سواق');
-      let hh = 0; for (let i = 0; i < nm0.length; i++) hh = (hh * 31 + nm0.charCodeAt(i)) | 0;
-      const types = ['sedan', 'hatch', 'compact', 'taxi'];
-      const rtype = types[Math.abs(hh) % types.length];
-      const rentry = CarSprites.tintedAudi(p.c || '#c94f43');
-      if (!rentry || !CarSprites.draw(ctx, rentry, x, y, 52, 94, 0))
-        drawCar(ctx, { x, y, w: 48, h: 86, color: p.c || '#c94f43', type: rtype, seed: Math.abs(hh) + 11, tilt: 0, spin: game.wheel });
+      drawCar(ctx, v.style, x, y, 0, game.elapsed);
       const nm = String(p.n || 'سواق').slice(0, 12);
       ctx.save(); ctx.translate(x, y - 56); ctx.rotate(-0.03);
       ctx.font = 'bold 12px "El Messiri", sans-serif';
@@ -1309,7 +944,7 @@ class Game {
     this.remoteView = new RemoteView();
     this.world = new World(this);
     this.scroll = 0; this.elapsed = 0; this.speed = 0;
-    this.bounce = 0; this.wheel = 0; this.shake = 0;
+    this.bounce = 0; this.shake = 0;
     this.overTimer = 0; this.overReason = 'crash';
     this.paused = false;
     this.name = Store.get('gamarawy_name', '');
@@ -1481,7 +1116,6 @@ class Game {
       const vx = (p.x - prevX) / Math.max(dt, 1e-4);
       p.tilt = clamp(vx * 0.00045, -0.26, 0.26);
       this.bounce += dt * (6 + this.speed * 0.012);
-      this.wheel += dt * this.speed * 0.02;
       p.dist += this.speed * dt * CFG.distPerPx;
       p.score += this.speed * dt * CFG.scorePerPx;
 
@@ -1505,12 +1139,12 @@ class Game {
       for (const c of this.traffic.list) {
         const tx = this.laneCenters[c.lane];
         const dx = Math.abs(tx - p.x), dy = Math.abs(c.y - p.y);
-        const hitX = dx < (pw + c.w) * 0.36;
-        const hitY = dy < (ph + c.h) * 0.38;
+        const hitX = dx < (pw + c.style.w) * 0.36;
+        const hitY = dy < (ph + c.style.h) * 0.38;
         if (p.invuln <= 0 && hitX && hitY) { this.crash(); break; }
         // traffic zooms upward past you: crossing is prevY > p.y -> y <= p.y
         if (!c.counted && c.prevY > p.y && c.y <= p.y && c.nearLock <= 0) {
-          const gap = dx - (pw + c.w) / 2;
+          const gap = dx - (pw + c.style.w) / 2;
           if (!hitX && gap < 22) {
             c.counted = true; c.nearLock = 1;
             p.nearN++; p.combo++; p.comboT = 4;
@@ -1519,12 +1153,12 @@ class Game {
             this.audio.near();
             this.popup(p.combo >= 3 ? 'ياااه! سلسلة! +' + ar(bonus) : 'ياااه! +' + ar(bonus), true);
             this.parts.dust(p.x, p.y, 6);
-          } else if (dx > (pw + c.w) / 2) {
+          } else if (dx > (pw + c.style.w) / 2) {
             c.counted = true; p.score += CFG.overScore; p.overN++;
           }
         } else if (!c.counted && c.y < p.y - 140) {
           c.counted = true;
-          if (dx > (pw + c.w) / 2) { p.score += CFG.overScore; p.overN++; }
+          if (dx > (pw + c.style.w) / 2) { p.score += CFG.overScore; p.overN++; }
         }
       }
       if (Math.random() < dt * 22) this.parts.dust(p.x + rand(-10, 10), p.y + 36, 1);
@@ -1572,38 +1206,17 @@ class Game {
       ctx.fillText('ج', 0.5, 4);
       ctx.restore();
     }
-    // traffic — ready sprite art, vector fallback until loaded
+    // traffic — ok/ prototype cars
     for (const c of this.traffic.list) {
       const x = this.laneCenters[c.lane] + Math.sin(c.wob) * 1.5;
-      const key = TYPE_SPRITE[c.type] || 'car';
-      if (!CarSprites.draw(ctx, CarSprites.get(key), x, c.y, c.w + 4, c.h + 6, Math.sin(c.wob) * 0.02))
-        drawCar(ctx, { x, y: c.y, w: c.w, h: c.h, color: c.color, type: c.type, seed: c.seed, tilt: Math.sin(c.wob) * 0.02, spin: this.wheel, _j: c._j || (c._j = wobbles(c.seed)) });
+      drawCar(ctx, c.style, x, c.y, Math.sin(c.wob) * 0.02, this.elapsed);
     }
     this.remoteView.draw(ctx, this);
     // player
     const p = this.player;
     if (p && (this.state === 'racing' || this.state === 'over-anim')) {
       const blink = p.invuln > 0 && this.state === 'racing' && (p.invuln * 10 | 0) % 2 === 0;
-      if (!blink) {
-        // squash on lane change: widen slightly with tilt
-        const squash = 1 + Math.min(0.06, Math.abs(p.tilt) * 0.18);
-        const py = p.y + Math.sin(this.bounce) * 1.6;
-        const entry = CarSprites.tintedAudi(p.color);
-        if (entry) {
-          CarSprites.draw(ctx, entry, p.x, py, 58, 102, p.tilt);
-        } else {
-          ctx.save();
-          ctx.translate(p.x, py);
-          ctx.scale(squash, 1 / Math.sqrt(squash));
-          ctx.translate(-p.x, -py);
-          drawCar(ctx, {
-            x: p.x, y: py,
-            w: 50, h: 90, color: p.color, type: 'sedan',
-            seed: p.seed, tilt: p.tilt, spin: this.wheel, isPlayer: true,
-          });
-          ctx.restore();
-        }
-      }
+      if (!blink) drawCar(ctx, p.style, p.x, p.y + Math.sin(this.bounce) * 1.6, p.tilt, this.elapsed);
     }
     this.parts.draw(ctx);
     const vg = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.36, this.W / 2, this.H / 2, this.H * 0.75);
@@ -1719,8 +1332,6 @@ const UI = {
   const net = new NetManager();
   const game = new Game(net, audio);
   UI.init(game, net, audio);
-  // ready car art loads in background; vector cars show until then
-  try { CarSprites.load().catch(() => {}); } catch {}
   net.name = game.name || 'سواق';
   net.car = game.carColor;
   net.init({
