@@ -53,8 +53,6 @@ const CAR_COLORS = ['#2e7ab8', '#c94f43', '#2f8f83', '#e9b44c', '#7a8450', '#8d4
 const TRAFFIC_TYPES = ['hatch', 'sedan', 'taxi', 'old', 'pickup', 'van'];
 
 const SHOPS = ['فول عم فوزي', 'كشري التحرير', 'قهوة عبدو', 'فرن بلدي', 'عصير قصب', 'مكتبة النجاح', 'حلاق النجوم', 'بقالة الأمانة'];
-const BOT_NAMES = ['عمر', 'محمد', 'يوسف'];
-const BOT_COLORS = ['#c94f43', '#2f8f83', '#e9b44c'];
 
 /* ---------------- 2. Utils ---------------- */
 const $ = (id) => document.getElementById(id);
@@ -387,29 +385,12 @@ class NetManager {
       return Object.values(snap.val() || {}).sort((a, b) => (b.score || 0) - (a.score || 0));
     } catch { return []; }
   }
-  /* offline bots so the street never feels empty */
+  /* offline: empty street, no fake rivals */
   _startBots() {
     this._stopBots();
-    this._bots = BOT_NAMES.map((n, i) => ({
-      key: 'bot' + i, n, c: BOT_COLORS[i % BOT_COLORS.length],
-      s: rand(200, 800), d: rand(100, 900), l: randi(0, CFG.lanes - 1),
-      fx: 0, a: 1, lastUpdate: Date.now(),
-    }));
-    const tick = () => {
-      const m = new Map();
-      for (const b of this._bots) {
-        b.s += rand(2, 9); b.d += rand(1, 4);
-        if (Math.random() < 0.025) b.l = randi(0, CFG.lanes - 1);
-        b.fx = (b.l + 0.5) / CFG.lanes; b.lastUpdate = Date.now();
-        m.set(b.key, b);
-      }
-      this.remotes.forEach((v, k) => m.set(k, v));
-      this.onRace && this.onRace(m);
-      this.online = m.size + 1;
-      this.onPresence && this.onPresence(this.online);
-    };
-    tick();
-    this._botTimer = setInterval(tick, 600);
+    this.online = 1;
+    this.onRace && this.onRace(new Map());
+    this.onPresence && this.onPresence(1);
   }
   _stopBots() { if (this._botTimer) clearInterval(this._botTimer); this._botTimer = 0; this._bots = []; }
 }
@@ -1422,7 +1403,7 @@ const UI = {
     onConn: (ok) => {
       $('connState').textContent = ok
         ? 'متصل • السباق أونلاين 🟢'
-        : 'وضع الشارع المحلي (فيه سواقين تجريبيين) 🟡';
+        : 'مش متوصل • بتسوق لوحدك 🟡';
       UI.refreshBoards();
     },
   });
