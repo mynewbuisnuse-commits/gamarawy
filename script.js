@@ -28,7 +28,6 @@ const CFG = {
   canvasW: 480,
   canvasHMin: 700,
   canvasHMax: 900,
-  playerY: 186,          // distance from bottom
   baseSpeed: 320,        // px/s world scroll at t=0
   maxExtraSpeed: 480,    // added over ~75s (cruise tops at 800)
   rampTime: 75,
@@ -38,7 +37,7 @@ const CFG = {
   nearScore: 100,
   overScore: 25,
   laneCooldown: 0.14,    // s between lane changes
-  gasBoost: 0.8,         // gas pedal adds up to +80% over cruise (~1440 top)
+  gasBoost: 1.2,         // gas pedal adds up to +120% over cruise (~1760 top)
   brakeCut: 0.55,        // brake pedal cuts down to 45% of cruise
   accelUp: 1.8,          // how fast speed rises toward target
   accelDown: 3.5,        // brakes bite harder than the engine pulls
@@ -184,22 +183,7 @@ class InputManager {
   constructor(game) {
     this.game = game;
     this._cool = 0;
-    this.tilt = { on: false, base: 0, gamma: null, needBase: false, seen: false, timer: 0 };
     window.addEventListener('keydown', (e) => this._onKey(e));
-    window.addEventListener('deviceorientation', (e) => {
-      if (e.gamma == null) return;
-      this.tilt.gamma = e.gamma; this.tilt.seen = true;
-      if (this.tilt.needBase) { this.tilt.needBase = false; this.tilt.base = e.gamma; }
-    });
-    // fallback for browsers that gate orientation but allow motion
-    window.addEventListener('devicemotion', (e) => {
-      const a = e.accelerationIncludingGravity;
-      if (!a || a.x == null || a.z == null) return;
-      if (this.tilt.gamma != null) return; // orientation wins when present
-      this.tilt.gamma = Math.atan2(a.x, a.z) * 57.2958;
-      this.tilt.seen = true;
-      if (this.tilt.needBase) { this.tilt.needBase = false; this.tilt.base = this.tilt.gamma; }
-    });
     window.addEventListener('keyup', (e) => {
       const k = e.key;
       if (k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ص') this.game.setPedal('gas', false);
@@ -267,10 +251,6 @@ class InputManager {
     };
     repeat('btnL', () => this.game.requestMove(-1));
     repeat('btnR', () => this.game.requestMove(1));
-    const tiltBtn = $('btnTilt');
-    if (tiltBtn) tiltBtn.addEventListener('click', () => this.toggleTilt());
-    const tiltBtnD = $('btnTiltD');
-    if (tiltBtnD) tiltBtnD.addEventListener('click', () => this.toggleTilt());
     // joystick: sideways notches shift lanes, up = gas, down = brake
     const base = $('joyBase'), knob = $('joyKnob');
     if (base && knob) {
@@ -309,58 +289,6 @@ class InputManager {
       base.addEventListener('pointerup', stop);
       base.addEventListener('pointercancel', stop);
     }
-  }
-  calibrateTilt() {
-    if (this.tilt.gamma != null) this.tilt.base = this.tilt.gamma;
-    else this.tilt.needBase = true;
-  }
-  _tiltLabel(t) {
-    for (const id of ['tiltState', 'tiltStateD']) {
-      const el = $(id);
-      if (el) el.textContent = t;
-    }
-  }
-  async toggleTilt() {
-    this.game.audio.ensure(); this.game.audio.click();
-    if (this.tilt.on) {
-      this.tilt.on = false;
-      if (this.tilt.timer) { clearInterval(this.tilt.timer); this.tilt.timer = 0; }
-      this._tiltLabel('مقفولة');
-      return;
-    }
-    // iOS needs explicit permission from a tap (orientation + motion)
-    try {
-      const DOE = window.DeviceOrientationEvent;
-      if (DOE && typeof DOE.requestPermission === 'function') {
-        if (await DOE.requestPermission() !== 'granted') return;
-      }
-      const DME = window.DeviceMotionEvent;
-      if (DME && typeof DME.requestPermission === 'function') {
-        try { await DME.requestPermission(); } catch {}
-      }
-      if (typeof DOE === 'undefined' && typeof DME === 'undefined') { this.game.popup('الميل بيشتغل من الموبايل بس 📱'); return; }
-    } catch { return; }
-    this.tilt.on = true;
-    this.tilt.seen = false;
-    this.calibrateTilt();
-    this._tiltLabel('مفتوحة');
-    this.game.popup('ميل الموبايل يمين وشمال 📱');
-    setTimeout(() => {
-      // watchdog: no sensor data at all → say so instead of staying dead
-      if (this.tilt.on && !this.tilt.seen) {
-        this.toggleTilt();
-        this.game.popup('مفيش إشارة سينسور 📵');
-      }
-    }, 2500);
-    if (!this.tilt.timer) this.tilt.timer = setInterval(() => {
-      if (!this.tilt.on) return;
-      const g = this.game;
-      if (g.state !== 'racing' || g.paused) return;
-      const d = (this.tilt.gamma || 0) - (this.tilt.base || 0);
-      this._tiltLabel(ar(Math.round(d)) + '°'); // live readout proves the sensor works
-      if (d > 12) g.requestMove(1);
-      else if (d < -12) g.requestMove(-1);
-    }, 130);
   }
 }
 
@@ -688,7 +616,7 @@ class TrafficManager {
             style: okStyle(seed, kind), type: kind,
             // upward speed: always faster than the scroll, scales a bit
             // with road speed so boosting stays spicy
-            vr: -(rand(150, 260) + diff * 90 + speed * 0.12),
+            vr: -(rand(150, 260) + diff * 90 + speed * 0.08),
             seed, wob: rand(0, 6.28), counted: false, nearLock: 0,
           });
         }
@@ -1157,8 +1085,10 @@ class Game {
     this.geom = { roadW, roadL, roadR: roadL + roadW };
     this.laneCenters = [];
     for (let i = 0; i < CFG.lanes; i++) this.laneCenters.push(roadL + (roadW * (i + 0.5)) / CFG.lanes);
-    if (this.player) this.player.y = this.H - CFG.playerY;
+    if (this.player) this.player.y = this.H - this.py();
   }
+  // player rides higher on touch screens so the buttons never cover the car
+  py() { return isTouchDevice() ? 300 : 200; }
   laneX(laneF) {
     const i = clamp(laneF, -0.5, CFG.lanes - 0.5);
     const l0 = clamp(Math.floor(i), 0, CFG.lanes - 1);
@@ -1189,10 +1119,9 @@ class Game {
     this.scroll = 0; this.elapsed = 0; this.shake = 0; this.speed = 0;
     this.flash = 0; this.hitstop = 0; this.smokeT = 0;
     this.pedalGas = false; this.pedalBrake = false;
-    if (this.input && this.input.tilt.on) this.input.calibrateTilt();
     this.traffic.reset(); this.traffic.timer = 1.4; this.coins.reset(); this.parts.clear();
     this.player = new Player(this.carColor, this.laneCenters[1]);
-    this.player.y = this.H - CFG.playerY;
+    this.player.y = this.H - this.py();
     $('lobby').classList.add('hidden'); $('gameover').classList.add('hidden');
     $('hud').classList.remove('hidden'); $('liveTag').classList.remove('hidden');
     // mobile gets big buttons, desktop keeps the joystick deck
@@ -1402,10 +1331,11 @@ class Game {
       $('hudScore').textContent = ar(Math.floor(p.score));
       $('hudDist').textContent = ar(Math.floor(p.dist)) + ' م';
       $('hudRank').textContent = '#' + ar(this.liveRank());
+      const spd01 = clamp((this.speed - 110) / (1800 - 110), 0, 1);
       const sf = $('speedFill');
-      if (sf) sf.style.width = (clamp((this.speed - 110) / (1450 - 110), 0, 1) * 100).toFixed(1) + '%';
+      if (sf) sf.style.width = (spd01 * 100).toFixed(1) + '%';
       const sfm = $('speedFillM');
-      if (sfm) sfm.style.width = (clamp((this.speed - 110) / (1450 - 110), 0, 1) * 100).toFixed(1) + '%';
+      if (sfm) sfm.style.width = (spd01 * 100).toFixed(1) + '%';
     } else if (this.state === 'over-anim') {
       const p = this.player;
       if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.4);
