@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ar-EG" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>جمراوي — سباق الشوارع | gamarawy</title>
+<meta name="description" content="جمراوي — سباق شوارع مصري مرسوم باليد. سوق، متخبطش، واطلع الأول.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Aref+Ruqaa:wght@400;700&family=El+Messiri:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='28' width='84' height='44' rx='14' fill='%232e7ab8' stroke='%232a2018' stroke-width='6'/><circle cx='28' cy='72' r='12' fill='%232a2018'/><circle cx='72' cy='72' r='12' fill='%232a2018'/></svg>">
+</head>
+<body>
+<div class="grain"></div>
+
+<div class="page">
+  <!-- ====== ترويسة مرسومة ====== -->
+  <header class="topbar">
+    <div class="logo-wrap">
+      <div class="logo-sign">
+        <span class="logo-ar">جمراوي</span>
+        <span class="logo-latin">gamarawy • سباق الشوارع</span>
+      </div>
+      <div class="tape t1"></div>
+      <div class="tape t2"></div>
+    </div>
+    <div class="top-actions">
+      <button id="btnSound" class="icon-btn" aria-label="الصوت" title="الصوت">🔊</button>
+      <button id="btnBoard" class="icon-btn" aria-label="المتصدرين" title="المتصدرين">🏆</button>
+    </div>
+  </header>
+
+  <!-- ====== المسرح ====== -->
+  <main class="stage-outer">
+    <div class="stage-frame">
+      <div class="frame-pin pin-r"></div>
+      <div class="frame-pin pin-l"></div>
+
+      <div id="stage">
+        <canvas id="game" width="480" height="800"></canvas>
+
+        <!-- HUD -->
+        <div id="hud" class="hidden">
+          <div class="hud-card hud-score">
+            <span class="hud-label">النقاط</span>
+            <span id="hudScore" class="hud-val">٠</span>
+          </div>
+          <div class="hud-card hud-dist">
+            <span class="hud-label">المسافة</span>
+            <span id="hudDist" class="hud-val">٠ م</span>
+          </div>
+          <div class="hud-card hud-rank">
+            <span class="hud-label">الترتيب</span>
+            <span id="hudRank" class="hud-val">#١</span>
+          </div>
+        </div>
+
+        <div id="liveTag" class="hidden">
+          <span class="dot"></span>
+          <span id="liveCount">١</span> في الشارع دلوقتي
+        </div>
+
+        <div id="popups"></div>
+        <div id="bigMsg" class="hidden"></div>
+
+        <!-- أزرار الموبايل -->
+        <div id="touchControls" class="hidden">
+          <button id="btnLeft" aria-label="شمال">◀<small>شمال</small></button>
+          <button id="btnRight" aria-label="يمين">▶<small>يمين</small></button>
+        </div>
+
+        <!-- ====== اللوبي ====== -->
+        <div id="lobby" class="overlay">
+          <div class="paper-card lobby-card">
+            <div class="stamp">مرسوم باليد في مصر ✎</div>
+            <p class="kicker">سباق الشوارع — القاهرة</p>
+            <h1 class="title">جاهز تنزل<br>الشارع؟</h1>
+            <p class="subtitle">سوق وسط التاكسيات والميكروباصات،<br>متخبطش، ولمّ نقط على قد ما تقدر.</p>
+
+            <div class="road-doodle" aria-hidden="true">
+              <svg viewBox="0 0 260 54" width="100%" height="54">
+                <path d="M6 48 C 60 44, 90 10, 130 12 S 210 40, 254 26" fill="none" stroke="#2a2018" stroke-width="3" stroke-linecap="round" stroke-dasharray="1 0"/>
+                <path d="M20 50 L34 50 M70 34 L84 30 M128 20 L142 20 M182 26 L196 28 M226 28 L240 26" stroke="#2a2018" stroke-width="3" stroke-linecap="round"/>
+                <g transform="translate(118,2) rotate(-4)">
+                  <rect x="0" y="0" width="28" height="16" rx="5" fill="#2e7ab8" stroke="#2a2018" stroke-width="2.5"/>
+                  <circle cx="7" cy="16" r="4" fill="#2a2018"/><circle cx="21" cy="16" r="4" fill="#2a2018"/>
+                </g>
+              </svg>
+            </div>
+
+            <label class="nick-label" for="nickInput">اسمك في السباق</label>
+            <input id="nickInput" maxlength="14" placeholder="مثلا: عمر الشبح" autocomplete="off">
+
+            <div class="car-pick">
+              <span>عربيتك:</span>
+              <div id="carColors" class="car-colors"></div>
+            </div>
+
+            <button id="btnPlay" class="btn-yalla">يلا بينا ←</button>
+            <p class="hint">← → أو A / D للسواقة • على الموبايل اسحب أو دوس الزراير</p>
+
+            <div class="lobby-row">
+              <div class="online-box">
+                <span class="pulse"></span>
+                <span><b id="onlineCount">١</b> أونلاين دلوقتي</span>
+              </div>
+              <div class="best-box">أحسن نتيجة ليك: <b id="lobbyBest">٠</b></div>
+            </div>
+
+            <div class="mini-board">
+              <div class="mini-board-head">🏆 المتصدرين <button id="miniRefresh" title="تحديث">↻</button></div>
+              <ol id="miniTop"></ol>
+            </div>
+
+            <p class="scribble">ملحوظة من عم فوزي: «اللي يخبط… يجيب فول للكل!»</p>
+          </div>
+        </div>
+
+        <!-- ====== نهاية السباق ====== -->
+        <div id="gameover" class="overlay hidden">
+          <div class="paper-card over-card">
+            <p class="kicker" id="overKicker">متخبطش!</p>
+            <h2 class="title-sm" id="overTitle">خبطت يا معلم…</h2>
+            <div class="over-score-wrap">
+              <div class="over-score"><span id="overScore">٠</span><small>نقطة</small></div>
+              <div class="over-sub">
+                <div>المسافة <b id="overDist">٠ م</b></div>
+                <div>ترتيبك <b id="overRank">#١</b></div>
+                <div>أحسن نتيجة <b id="overBest">٠</b></div>
+              </div>
+            </div>
+            <div id="newRecord" class="hidden">🎉 رقم جديد! عاش يا وحش</div>
+            <button id="btnRetry" class="btn-yalla">العب تاني ↻</button>
+            <button id="btnLobby" class="btn-ghost">ارجع للركنة</button>
+          </div>
+        </div>
+
+        <!-- ====== لوحة المتصدرين ====== -->
+        <div id="boardDrawer" class="hidden">
+          <div class="paper-card board-card">
+            <div class="board-head">
+              <h3>🏆 المتصدرين</h3>
+              <button id="btnCloseBoard" class="x">✕</button>
+            </div>
+            <div class="tabs">
+              <button data-tab="global" class="tab active">الكل</button>
+              <button data-tab="weekly" class="tab">متصدرين الأسبوع</button>
+              <button data-tab="you" class="tab">أنا</button>
+            </div>
+            <ol id="boardList"></ol>
+            <p class="board-foot">النقطة بتتحسب من المسافة + التجاوز + «ياااه!» — الغشاش بيتمسك 😌</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <p class="under-note">جمراوي v1 — لعبة مستقلة صغيرة • معمولة بحب في مصر • <span id="connState">بيحاول يتصل…</span></p>
+  </main>
+</div>
+
+<!-- Firebase compat SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,232 @@
+/* ============================================================
+   جمراوي — هوية مرسومة باليد / Modern Egyptian street paper
+   palette: ورق + حبر + أزرق عربية + تراكوتا + طحيني تاكسي
+   ============================================================ */
+:root{
+  --paper:#f6ecd4;
+  --paper2:#efe0bd;
+  --paper3:#e7d3a6;
+  --ink:#2a2018;
+  --ink-soft:#4d4132;
+  --blue:#2e7ab8;
+  --blue-d:#1d4e78;
+  --terra:#c96f3b;
+  --terra-d:#9c4e24;
+  --taxi:#e9b44c;
+  --teal:#2f8f83;
+  --red:#c94f43;
+  --olive:#7a8450;
+  --shadow: 3px 4px 0 rgba(42,32,24,.9);
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0}
+body{
+  font-family:"El Messiri", "Cairo", system-ui, sans-serif;
+  background:
+    radial-gradient(circle at 15% 10%, #e8d5a8 0 90px, transparent 91px),
+    radial-gradient(circle at 88% 88%, #dfc89a 0 120px, transparent 121px),
+    repeating-linear-gradient(-4deg, transparent 0 26px, rgba(42,32,24,.028) 26px 27px),
+    #d9c69c;
+  color:var(--ink);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+/* حبيبات ورق */
+.grain{
+  position:fixed; inset:0; pointer-events:none; z-index:60; opacity:.5; mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.2 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.page{max-width:560px; margin:0 auto; padding:10px 12px 26px}
+
+/* ---------- الترويسة ---------- */
+.topbar{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin:6px 2px 10px}
+.logo-wrap{position:relative}
+.logo-sign{
+  background:var(--paper);
+  border:3px solid var(--ink);
+  border-radius:255px 18px 225px 18px/18px 225px 18px 255px;
+  padding:8px 18px 6px;
+  transform:rotate(-1.5deg);
+  box-shadow:var(--shadow);
+  position:relative;
+}
+.logo-ar{font-family:"Aref Ruqaa", serif; font-size:34px; line-height:1; display:block}
+.logo-latin{font-size:12px; letter-spacing:.5px; color:var(--ink-soft); display:block; margin-top:2px}
+.tape{position:absolute; width:64px; height:20px; background:rgba(233,180,76,.75); border:1px solid rgba(42,32,24,.4); opacity:.9}
+.t1{top:-10px; right:18px; transform:rotate(-8deg)}
+.t2{top:-8px; left:14px; transform:rotate(10deg); background:rgba(47,143,131,.4)}
+.top-actions{display:flex; gap:8px; padding-top:6px}
+.icon-btn{
+  width:46px; height:46px; font-size:20px; cursor:pointer;
+  background:var(--paper); border:3px solid var(--ink); border-radius:60% 40% 55% 45%/45% 55% 40% 60%;
+  box-shadow:2px 3px 0 var(--ink); transform:rotate(2deg);
+}
+.icon-btn:active{transform:translate(1px,2px) rotate(2deg); box-shadow:0 0 0 var(--ink)}
+
+/* ---------- المسرح ---------- */
+.stage-outer{display:flex; flex-direction:column; align-items:center}
+.stage-frame{
+  position:relative; width:100%; max-width:480px;
+  background:#b99c6e; border:3px solid var(--ink);
+  border-radius:18px 22px 20px 24px;
+  padding:10px; transform:rotate(.4deg);
+  box-shadow:5px 7px 0 rgba(42,32,24,.85);
+}
+.stage-frame::before{
+  content:""; position:absolute; inset:6px; pointer-events:none;
+  border:2px dashed rgba(42,32,24,.35); border-radius:14px;
+}
+.frame-pin{position:absolute; top:-11px; width:22px; height:22px; background:var(--red); border:3px solid var(--ink); border-radius:50%; box-shadow:1px 2px 0 var(--ink)}
+.pin-r{right:36px}.pin-l{left:36px}
+#stage{position:relative; width:100%; aspect-ratio:3/5; max-height:78vh; min-height:520px; background:var(--paper2); border:3px solid var(--ink); border-radius:12px 16px 14px 18px; overflow:hidden}
+#game{position:absolute; inset:0; width:100%; height:100%; display:block; image-rendering:auto}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute; top:8px; right:8px; left:8px; display:flex; gap:8px; z-index:5}
+#hud.hidden{display:none}
+.hud-card{
+  flex:1; background:var(--paper); border:2.5px solid var(--ink);
+  padding:4px 8px 5px; text-align:center;
+  box-shadow:2px 3px 0 var(--ink);
+}
+.hud-card:nth-child(1){border-radius:14px 4px 14px 4px; transform:rotate(-1deg)}
+.hud-card:nth-child(2){border-radius:4px 14px 4px 14px; transform:rotate(.8deg)}
+.hud-card:nth-child(3){border-radius:12px 12px 4px 14px; transform:rotate(-.6deg); background:var(--taxi)}
+.hud-label{display:block; font-size:11px; color:var(--ink-soft)}
+.hud-val{display:block; font-size:19px; font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums}
+
+#liveTag{
+  position:absolute; top:64px; right:12px; z-index:5;
+  background:var(--ink); color:var(--paper); font-size:12px;
+  padding:3px 10px; border-radius:20px; display:flex; gap:6px; align-items:center;
+  transform:rotate(-1deg);
+}
+#liveTag.hidden{display:none}
+#liveTag .dot{width:8px;height:8px;border-radius:50%;background:#7ee08a; animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.3}}
+
+#popups{position:absolute; inset:0; pointer-events:none; z-index:6; overflow:hidden}
+.pop{
+  position:absolute; font-weight:700; background:var(--paper);
+  border:2px solid var(--ink); border-radius:12px 4px 12px 4px;
+  padding:2px 10px; font-size:16px; box-shadow:2px 2px 0 var(--ink);
+  animation:rise 1s ease-out forwards; white-space:nowrap;
+}
+.pop.big{background:var(--taxi); font-family:"Aref Ruqaa",serif; font-size:24px; padding:4px 16px}
+@keyframes rise{from{transform:translateY(0) rotate(-3deg) scale(.7); opacity:0}15%{opacity:1; transform:translateY(-8px) rotate(2deg) scale(1.08)}to{transform:translateY(-70px) rotate(-2deg) scale(1); opacity:0}}
+#bigMsg{
+  position:absolute; top:38%; right:0; left:0; text-align:center; z-index:7;
+  font-family:"Aref Ruqaa",serif; font-size:44px; color:var(--paper);
+  text-shadow:3px 3px 0 var(--ink), -1px -1px 0 var(--ink);
+  transform:rotate(-4deg); pointer-events:none;
+  animation:pop .35s cubic-bezier(.2,2.2,.4,1);
+}
+#bigMsg.hidden{display:none}
+@keyframes pop{from{scale:.4}to{scale:1}}
+
+/* ---------- أزرار اللمس ---------- */
+#touchControls{position:absolute; bottom:12px; right:12px; left:12px; display:flex; justify-content:space-between; z-index:6}
+#touchControls.hidden{display:none}
+#touchControls button{
+  width:86px; height:72px; font-size:26px; cursor:pointer; color:var(--ink);
+  background:rgba(246,236,212,.92); border:3px solid var(--ink);
+  box-shadow:3px 4px 0 var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+#btnLeft{border-radius:50% 20% 50% 20%/20% 50% 20% 50%}
+#btnRight{border-radius:20% 50% 20% 50%/50% 20% 50% 20%}
+#touchControls small{font-size:12px; font-family:"El Messiri"}
+#touchControls button:active{transform:translate(2px,3px); box-shadow:none}
+
+/* ---------- أوفرلاي ---------- */
+.overlay{position:absolute; inset:0; z-index:10; display:flex; align-items:flex-start; justify-content:center; padding:12px; overflow-y:auto; background:rgba(42,32,24,.28)}
+.overlay.hidden{display:none}
+.paper-card{
+  width:100%; max-width:400px; background:var(--paper);
+  border:3px solid var(--ink); padding:16px 16px 14px; margin:auto;
+  border-radius:22px 8px 24px 10px/10px 24px 8px 22px;
+  box-shadow:5px 6px 0 rgba(42,32,24,.9);
+  position:relative;
+  animation:cardIn .35s cubic-bezier(.2,1.6,.4,1);
+}
+@keyframes cardIn{from{transform:translateY(18px) rotate(-1deg) scale(.96); opacity:0}to{transform:none; opacity:1}}
+.lobby-card{transform:rotate(-.5deg)}
+.stamp{
+  position:absolute; top:-13px; left:14px; font-size:11px; background:var(--teal); color:#fff;
+  border:2px solid var(--ink); padding:2px 10px; border-radius:20px; transform:rotate(3deg);
+}
+.kicker{margin:6px 0 0; font-size:13px; color:var(--terra-d); font-weight:700}
+.title{font-family:"Aref Ruqaa",serif; font-size:44px; line-height:1.15; margin:2px 0 6px}
+.title-sm{font-family:"Aref Ruqaa",serif; font-size:32px; margin:2px 0 8px; line-height:1.2}
+.subtitle{margin:0 0 8px; color:var(--ink-soft); font-size:15px; line-height:1.7}
+.road-doodle{margin:2px 0 6px; opacity:.95}
+.nick-label{display:block; font-size:13px; font-weight:700; margin:6px 0 4px}
+#nickInput{
+  width:100%; font-family:inherit; font-size:18px; padding:10px 12px;
+  background:#fffdf3; border:3px solid var(--ink); color:var(--ink);
+  border-radius:12px 4px 12px 4px; outline:none;
+}
+#nickInput:focus{background:#fff; box-shadow:3px 3px 0 var(--taxi)}
+.car-pick{display:flex; align-items:center; gap:8px; margin:10px 0 4px; font-size:14px; font-weight:700}
+.car-colors{display:flex; gap:8px}
+.car-dot{width:32px; height:32px; border:3px solid var(--ink); border-radius:50% 45% 55% 50%/50% 55% 45% 55%; cursor:pointer; box-shadow:1px 2px 0 var(--ink)}
+.car-dot.sel{outline:3px solid var(--ink); outline-offset:2px; transform:scale(1.1) rotate(-6deg)}
+.btn-yalla{
+  width:100%; margin-top:10px; font-family:"Aref Ruqaa",serif; font-size:26px; cursor:pointer;
+  background:var(--terra); color:#fffdf3; border:3px solid var(--ink);
+  border-radius:16px 6px 18px 6px/6px 18px 6px 16px;
+  padding:8px; box-shadow:3px 4px 0 var(--ink); transform:rotate(-.7deg);
+  text-shadow:1px 1px 0 rgba(0,0,0,.3);
+}
+.btn-yalla:hover{background:#d67e45}
+.btn-yalla:active{transform:translate(2px,3px); box-shadow:none}
+.btn-ghost{
+  width:100%; margin-top:8px; font-family:inherit; font-size:15px; cursor:pointer;
+  background:transparent; border:2.5px dashed var(--ink); border-radius:12px; padding:8px;
+}
+.hint{font-size:12px; color:var(--ink-soft); text-align:center; margin:8px 0 4px}
+.lobby-row{display:flex; justify-content:space-between; gap:8px; margin:8px 0; font-size:13px}
+.online-box,.best-box{background:#fffdf3; border:2px solid var(--ink); border-radius:10px 14px 10px 14px; padding:5px 10px; display:flex; align-items:center; gap:6px}
+.pulse{width:9px;height:9px;border-radius:50%;background:#3faf5c; animation:blink 1s infinite}
+.mini-board{border:2.5px solid var(--ink); border-radius:8px 14px 8px 14px; background:#fffdf3; padding:8px 10px; transform:rotate(.4deg)}
+.mini-board-head{display:flex; justify-content:space-between; align-items:center; font-weight:700; font-size:14px; margin-bottom:4px}
+.mini-board-head button{border:2px solid var(--ink); background:var(--paper); border-radius:50%; width:26px;height:26px; cursor:pointer}
+#miniTop,#boardList{margin:0; padding:0; list-style:none}
+#miniTop li,#boardList li{
+  display:flex; justify-content:space-between; gap:8px; font-size:14px;
+  padding:5px 8px; border-bottom:1.5px dashed rgba(42,32,24,.3);
+}
+#miniTop li:nth-child(odd),#boardList li:nth-child(odd){background:rgba(233,180,76,.18)}
+#miniTop li.me,#boardList li.me{background:rgba(47,143,131,.2); border:1.5px solid var(--ink); border-radius:8px}
+.scribble{font-size:12px; color:var(--ink-soft); transform:rotate(-1.5deg); margin:10px 2px 0; border-top:1.5px dashed rgba(42,32,24,.35); padding-top:8px}
+
+/* gameover */
+.over-score-wrap{display:flex; gap:12px; align-items:center; margin:6px 0 10px}
+.over-score{background:var(--taxi); border:3px solid var(--ink); border-radius:50% 45% 55% 48%/48% 55% 45% 52%; width:110px; height:110px; display:flex; flex-direction:column; align-items:center; justify-content:center; transform:rotate(-4deg); box-shadow:3px 4px 0 var(--ink)}
+.over-score span{font-size:30px; font-weight:700}
+.over-score small{font-size:12px}
+.over-sub{font-size:14px; line-height:2}
+#newRecord{background:#fff3ad; border:2px dashed var(--ink); border-radius:10px; padding:6px; text-align:center; font-weight:700; margin-bottom:8px; animation:pop .4s}
+
+/* board drawer */
+#boardDrawer{position:absolute; inset:0; z-index:20; background:rgba(42,32,24,.4); display:flex; padding:14px}
+#boardDrawer.hidden{display:none}
+.board-card{margin:auto; max-height:92%; overflow-y:auto; transform:rotate(.5deg)}
+.board-head{display:flex; justify-content:space-between; align-items:center}
+.board-head h3{font-family:"Aref Ruqaa",serif; margin:0; font-size:24px}
+.x{border:2.5px solid var(--ink); background:var(--paper); border-radius:50%; width:32px;height:32px; cursor:pointer; font-size:14px}
+.tabs{display:flex; gap:6px; margin:10px 0}
+.tab{flex:1; font-family:inherit; font-size:13px; padding:7px; cursor:pointer; background:#fffdf3; border:2.5px solid var(--ink); border-radius:10px 4px 10px 4px}
+.tab.active{background:var(--ink); color:var(--paper)}
+.board-foot{font-size:12px; color:var(--ink-soft); text-align:center}
+
+.under-note{text-align:center; font-size:12px; color:#5c4c37; margin:10px 4px 0}
+
+@media (max-width:420px){
+  .title{font-size:38px}
+  #stage{min-height:560px}
+  .page{padding:8px 8px 20px}
+  .hud-val{font-size:17px}
+}
+@media (min-width:700px){
+  #stage{max-height:82vh}
+}
