@@ -184,12 +184,21 @@ class InputManager {
   constructor(game) {
     this.game = game;
     this._cool = 0;
-    this.tilt = { on: false, base: 0, gamma: 0, needBase: false, timer: 0 };
+    this.tilt = { on: false, base: 0, gamma: null, needBase: false, seen: false, timer: 0 };
     window.addEventListener('keydown', (e) => this._onKey(e));
     window.addEventListener('deviceorientation', (e) => {
       if (e.gamma == null) return;
-      this.tilt.gamma = e.gamma;
+      this.tilt.gamma = e.gamma; this.tilt.seen = true;
       if (this.tilt.needBase) { this.tilt.needBase = false; this.tilt.base = e.gamma; }
+    });
+    // fallback for browsers that gate orientation but allow motion
+    window.addEventListener('devicemotion', (e) => {
+      const a = e.accelerationIncludingGravity;
+      if (!a || a.x == null || a.z == null) return;
+      if (this.tilt.gamma != null) return; // orientation wins when present
+      this.tilt.gamma = Math.atan2(a.x, a.z) * 57.2958;
+      this.tilt.seen = true;
+      if (this.tilt.needBase) { this.tilt.needBase = false; this.tilt.base = this.tilt.gamma; }
     });
     window.addEventListener('keyup', (e) => {
       const k = e.key;
@@ -319,22 +328,36 @@ class InputManager {
       this._tiltLabel('مقفولة');
       return;
     }
-    // iOS needs explicit permission from a tap
+    // iOS needs explicit permission from a tap (orientation + motion)
     try {
       const DOE = window.DeviceOrientationEvent;
       if (DOE && typeof DOE.requestPermission === 'function') {
         if (await DOE.requestPermission() !== 'granted') return;
-      } else if (typeof DOE === 'undefined') { this.game.popup('الميل بيشتغل من الموبايل بس 📱'); return; } // no sensor at all
+      }
+      const DME = window.DeviceMotionEvent;
+      if (DME && typeof DME.requestPermission === 'function') {
+        try { await DME.requestPermission(); } catch {}
+      }
+      if (typeof DOE === 'undefined' && typeof DME === 'undefined') { this.game.popup('الميل بيشتغل من الموبايل بس 📱'); return; }
     } catch { return; }
     this.tilt.on = true;
+    this.tilt.seen = false;
     this.calibrateTilt();
     this._tiltLabel('مفتوحة');
     this.game.popup('ميل الموبايل يمين وشمال 📱');
+    setTimeout(() => {
+      // watchdog: no sensor data at all → say so instead of staying dead
+      if (this.tilt.on && !this.tilt.seen) {
+        this.toggleTilt();
+        this.game.popup('مفيش إشارة سينسور 📵');
+      }
+    }, 2500);
     if (!this.tilt.timer) this.tilt.timer = setInterval(() => {
       if (!this.tilt.on) return;
       const g = this.game;
       if (g.state !== 'racing' || g.paused) return;
       const d = (this.tilt.gamma || 0) - (this.tilt.base || 0);
+      this._tiltLabel(ar(Math.round(d)) + '°'); // live readout proves the sensor works
       if (d > 12) g.requestMove(1);
       else if (d < -12) g.requestMove(-1);
     }, 130);
