@@ -184,7 +184,13 @@ class InputManager {
   constructor(game) {
     this.game = game;
     this._cool = 0;
+    this.tilt = { on: false, base: 0, gamma: 0, needBase: false, timer: 0 };
     window.addEventListener('keydown', (e) => this._onKey(e));
+    window.addEventListener('deviceorientation', (e) => {
+      if (e.gamma == null) return;
+      this.tilt.gamma = e.gamma;
+      if (this.tilt.needBase) { this.tilt.needBase = false; this.tilt.base = e.gamma; }
+    });
     window.addEventListener('keyup', (e) => {
       const k = e.key;
       if (k === 'ArrowUp' || k === 'w' || k === 'W' || k === 'ص') this.game.setPedal('gas', false);
@@ -252,6 +258,8 @@ class InputManager {
     };
     repeat('btnL', () => this.game.requestMove(-1));
     repeat('btnR', () => this.game.requestMove(1));
+    const tiltBtn = $('btnTilt');
+    if (tiltBtn) tiltBtn.addEventListener('click', () => this.toggleTilt());
     // joystick: sideways notches shift lanes, up = gas, down = brake
     const base = $('joyBase'), knob = $('joyKnob');
     if (base && knob) {
@@ -290,6 +298,38 @@ class InputManager {
       base.addEventListener('pointerup', stop);
       base.addEventListener('pointercancel', stop);
     }
+  }
+  calibrateTilt() {
+    if (this.tilt.gamma != null) this.tilt.base = this.tilt.gamma;
+    else this.tilt.needBase = true;
+  }
+  async toggleTilt() {
+    this.game.audio.ensure(); this.game.audio.click();
+    if (this.tilt.on) {
+      this.tilt.on = false;
+      if (this.tilt.timer) { clearInterval(this.tilt.timer); this.tilt.timer = 0; }
+      $('tiltState').textContent = 'مقفولة';
+      return;
+    }
+    // iOS needs explicit permission from a tap
+    try {
+      const DOE = window.DeviceOrientationEvent;
+      if (DOE && typeof DOE.requestPermission === 'function') {
+        if (await DOE.requestPermission() !== 'granted') return;
+      } else if (typeof DOE === 'undefined') return; // no sensor at all
+    } catch { return; }
+    this.tilt.on = true;
+    this.calibrateTilt();
+    $('tiltState').textContent = 'مفتوحة';
+    this.game.popup('ميل الموبايل يمين وشمال 📱');
+    if (!this.tilt.timer) this.tilt.timer = setInterval(() => {
+      if (!this.tilt.on) return;
+      const g = this.game;
+      if (g.state !== 'racing' || g.paused) return;
+      const d = (this.tilt.gamma || 0) - (this.tilt.base || 0);
+      if (d > 12) g.requestMove(1);
+      else if (d < -12) g.requestMove(-1);
+    }, 130);
   }
 }
 
@@ -1118,6 +1158,7 @@ class Game {
     this.scroll = 0; this.elapsed = 0; this.shake = 0; this.speed = 0;
     this.flash = 0; this.hitstop = 0; this.smokeT = 0;
     this.pedalGas = false; this.pedalBrake = false;
+    if (this.input && this.input.tilt.on) this.input.calibrateTilt();
     this.traffic.reset(); this.traffic.timer = 1.4; this.coins.reset(); this.parts.clear();
     this.player = new Player(this.carColor, this.laneCenters[1]);
     this.player.y = this.H - CFG.playerY;
