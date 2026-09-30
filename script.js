@@ -434,20 +434,43 @@ class Particles {
       r: rand(1.5, 3), life: rand(0.25, 0.45), t: 0, col: '130,125,118',
     });
   }
+  fire(x, y, n = 12) {
+    for (let i = 0; i < n; i++) this._add({
+      x: x + rand(-12, 12), y: y + rand(-10, 10),
+      vx: rand(-60, 60), vy: rand(-160, -40),
+      r: rand(3, 7), life: rand(0.3, 0.6), t: 0,
+      col: Math.random() < 0.5 ? '250,150,40' : '250,210,90', shrink: true, grav: -60,
+    });
+  }
+  smoke(x, y, n = 6) {
+    for (let i = 0; i < n; i++) this._add({
+      x: x + rand(-10, 10), y: y + rand(-8, 8),
+      vx: rand(-25, 25), vy: rand(-70, -30),
+      r: rand(4, 8), life: rand(0.8, 1.4), t: 0, col: '90,88,84', grav: -30,
+    });
+  }
+  debris(x, y, n = 10) {
+    for (let i = 0; i < n; i++) this._add({
+      x, y, vx: rand(-260, 260), vy: rand(-300, 40),
+      r: rand(1.5, 4), life: rand(0.4, 0.9), t: 0,
+      col: Math.random() < 0.4 ? '233,180,76' : '40,34,28', grav: 500, shrink: true,
+    });
+  }
   update(dt) {
     const l = this.list;
     for (let i = l.length - 1; i >= 0; i--) {
       const p = l[i];
       p.t += dt;
       if (p.t >= p.life) { l.splice(i, 1); continue; }
-      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 120 * dt;
+      p.x += p.vx * dt; p.y += p.vy * dt; p.vy += (p.grav == null ? 120 : p.grav) * dt;
     }
   }
   draw(ctx) {
     for (const p of this.list) {
       const a = (1 - p.t / p.life) * 0.85;
+      const rr = p.shrink ? p.r * Math.max(0.2, 1 - (p.t / p.life) * 0.75) : p.r * (1 + p.t * 2);
       ctx.fillStyle = 'rgba(' + p.col + ',' + a.toFixed(2) + ')';
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 + p.t * 2), 0, 6.2832); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, 6.2832); ctx.fill();
     }
   }
   clear() { this.list.length = 0; }
@@ -1071,6 +1094,7 @@ class Game {
     this.state = 'countdown';
     this.countT = 2.1; this.countShown = 4;
     this.scroll = 0; this.elapsed = 0; this.shake = 0; this.speed = 0;
+    this.flash = 0; this.hitstop = 0; this.smokeT = 0;
     this.pedalGas = false; this.pedalBrake = false;
     this.traffic.reset(); this.traffic.timer = 1.4; this.coins.reset(); this.parts.clear();
     this.player = new Player(this.carColor, this.laneCenters[1]);
@@ -1093,11 +1117,19 @@ class Game {
     const p = this.player;
     if (!p || !p.alive || this.state !== 'racing') return;
     p.alive = false;
-    this.audio.crash(); this.audio.stopEngine();
-    this.shake = 14;
-    this.parts.spark(p.x, p.y, 22);
+    p.wreckRot = 0;
+    p.wreckSpin = (Math.random() < 0.5 ? -1 : 1) * rand(4.5, 7.5);
+    p.wreckSlide = rand(-40, 40);
+    this.audio.crash();
+    this.audio.noise(0.3, { vol: 0.14, cutoff: 250, delay: 0.12 });
+    this.audio.stopEngine();
+    this.shake = 22; this.flash = 1; this.hitstop = 0.12;
+    this.parts.spark(p.x, p.y, 18);
+    this.parts.fire(p.x, p.y, 14);
+    this.parts.debris(p.x, p.y, 12);
+    this.parts.smoke(p.x, p.y, 8);
     this.state = 'over-anim';
-    this.overTimer = 1.1; this.overReason = 'crash';
+    this.overTimer = 1.25; this.overReason = 'crash';
     this.bigMsg('متخبطش!');
   }
   _finishOver() {
@@ -1272,10 +1304,20 @@ class Game {
       const sf = $('speedFill');
       if (sf) sf.style.width = (clamp((this.speed - 110) / (760 - 110), 0, 1) * 100).toFixed(1) + '%';
     } else if (this.state === 'over-anim') {
+      const p = this.player;
+      if (this.flash > 0) this.flash = Math.max(0, this.flash - dt * 2.4);
+      if (this.hitstop > 0) { this.hitstop -= dt; return; } // frozen impact frame
+      const sdt = dt * 0.35; // slow-mo wreck
       this.overTimer -= dt;
-      this.scroll += this.speed * dt * 0.3;
-      this.speed = Math.max(0, this.speed - dt * 400);
-      this.parts.update(dt);
+      this.scroll += this.speed * sdt * 0.3;
+      this.speed = Math.max(0, this.speed - sdt * 400);
+      if (p && !p.alive) {
+        p.wreckRot = (p.wreckRot || 0) + (p.wreckSpin || 5) * sdt;
+        p.x += (p.wreckSlide || 0) * sdt;
+        this.smokeT = (this.smokeT || 0) - sdt;
+        if (this.smokeT <= 0) { this.smokeT = 0.07; this.parts.smoke(p.x + rand(-8, 8), p.y - 10, 2); }
+      }
+      this.parts.update(sdt);
       if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 30);
       if (this.overTimer <= 0) this._finishOver();
     } else {
@@ -1319,12 +1361,23 @@ class Game {
     const p = this.player;
     if (p && (this.state === 'racing' || this.state === 'over-anim' || this.state === 'countdown')) {
       const blink = p.invuln > 0 && this.state === 'racing' && (p.invuln * 10 | 0) % 2 === 0;
-      if (!blink) drawCar(ctx, p.style, p.x, p.y + Math.sin(this.bounce) * 1.6, p.tilt, this.elapsed);
+      if (!blink) {
+        if (p.alive) drawCar(ctx, p.style, p.x, p.y + Math.sin(this.bounce) * 1.6, p.tilt, this.elapsed);
+        else drawCar(ctx, p.style, p.x, p.y, p.tilt * 0.4 + (p.wreckRot || 0), this.elapsed);
+      }
     }
     this.parts.draw(ctx);
     const vg = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.36, this.W / 2, this.H / 2, this.H * 0.75);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(42,32,24,.20)');
     ctx.fillStyle = vg; ctx.fillRect(0, 0, this.W, this.H);
+    // impact flash: hot white + red edges
+    if (this.flash > 0) {
+      ctx.fillStyle = 'rgba(255,238,200,' + (this.flash * 0.5).toFixed(3) + ')';
+      ctx.fillRect(0, 0, this.W, this.H);
+      ctx.strokeStyle = 'rgba(180,40,30,' + (this.flash * 0.4).toFixed(3) + ')';
+      ctx.lineWidth = 26;
+      ctx.strokeRect(0, 0, this.W, this.H);
+    }
     ctx.restore();
   }
 }
