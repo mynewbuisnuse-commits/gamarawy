@@ -129,40 +129,28 @@ body{
 @keyframes pop{from{scale:.4}to{scale:1}}
 
 /* ---------- أزرار اللمس ---------- */
-#touchControls{position:absolute; bottom:12px; right:12px; left:12px; display:flex; justify-content:space-between; z-index:6; direction:ltr}
+#touchControls{position:absolute; bottom:12px; right:12px; left:12px; display:flex; gap:10px; align-items:center; z-index:6; direction:ltr}
 #touchControls.hidden{display:none}
-#touchControls button{
-  width:72px; height:64px; font-size:24px; cursor:pointer; color:var(--ink);
-  background:rgba(246,236,212,.92); border:3px solid var(--ink);
-  box-shadow:3px 4px 0 var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
-  flex:none;
-}
-#steer{
-  flex:1; appearance:none; -webkit-appearance:none; background:transparent;
-  height:48px; margin:0 4px; cursor:grab; min-width:0;
-}
-#steer:active{cursor:grabbing}
-#steer::-webkit-slider-runnable-track{height:12px; background:var(--paper); border:3px solid var(--ink); border-radius:12px; box-shadow:2px 2px 0 var(--ink)}
-#steer::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:34px; height:34px; margin-top:-14px; background:var(--terra); border:3px solid var(--ink); border-radius:50% 45% 55% 50%/50% 55% 45% 55%; box-shadow:2px 2px 0 var(--ink)}
-#steer::-moz-range-track{height:8px; background:var(--paper); border:3px solid var(--ink); border-radius:12px}
-#steer::-moz-range-thumb{width:28px; height:28px; background:var(--terra); border:3px solid var(--ink); border-radius:50% 45% 55% 50%/50% 55% 45% 55%}
-#btnLeft{border-radius:50% 20% 50% 20%/20% 50% 20% 50%}
-#btnRight{border-radius:20% 50% 20% 50%/50% 20% 50% 20%}
-#touchControls small{font-size:12px; font-family:"El Messiri"}
-#touchControls button:active{transform:translate(2px,3px); box-shadow:none}
 
-/* ---------- الدواسات + شرطة السرعة ---------- */
-#pedals{position:absolute; bottom:84px; right:12px; left:12px; display:flex; gap:8px; align-items:center; z-index:6; direction:ltr}
-#pedals.hidden{display:none}
-#pedals button{
-  width:64px; height:50px; font-size:20px; cursor:pointer; color:var(--ink); flex:none;
+/* ---------- الدراع + الدواسات + شرطة السرعة ---------- */
+#joy{display:flex; flex-direction:column; align-items:center; gap:2px; flex:none}
+#joyBase{width:112px; height:112px; background:rgba(247,238,214,.94); border:3px solid var(--ink); border-radius:50%; box-shadow:3px 4px 0 var(--ink); position:relative; touch-action:none}
+#joyBase::before{content:""; position:absolute; inset:15px; border:2px dashed rgba(42,32,24,.35); border-radius:50%}
+#joyBase::after{content:"+"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:44px; color:rgba(42,32,24,.18); font-weight:700}
+#joyKnob{position:absolute; left:50%; top:50%; width:50px; height:50px; margin:-25px 0 0 -25px; background:var(--terra); border:3px solid var(--ink); border-radius:50% 45% 55% 50%/50% 55% 45% 55%; box-shadow:2px 2px 0 var(--ink); z-index:1}
+#joy small{font-size:10px; font-weight:700; text-align:center; line-height:1.5}
+#deckMid{flex:1; display:flex; align-items:center; min-width:0}
+#deckPedals{display:flex; flex-direction:column; gap:6px; flex:none}
+#deckPedals button{
+  width:66px; height:46px; font-size:18px; cursor:pointer; color:var(--ink);
   background:rgba(246,236,212,.92); border:3px solid var(--ink);
   box-shadow:3px 4px 0 var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
 }
-#btnBrake{border-radius:20% 50% 20% 50%/50% 20% 50% 20%}
-#btnGas{border-radius:50% 20% 50% 20%/20% 50% 20% 50%; background:rgba(233,180,76,.94)}
-#pedals small{font-size:11px; font-family:"El Messiri"}
-#pedals button:active{transform:translate(2px,3px); box-shadow:none}
+#btnGas{background:rgba(233,180,76,.94)}
+#deckPedals small{font-size:11px; font-family:"El Messiri"}
+#deckPedals button:active{transform:translate(2px,3px); box-shadow:none}
+
+/* ---------- شرطة السرعة ---------- */
 #speedWrap{flex:1; height:14px; min-width:0; background:var(--paper); border:3px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:2px 2px 0 var(--ink)}
 #speedFill{height:100%; width:0%; background:linear-gradient(90deg, var(--teal), var(--taxi), var(--terra))}
 

@@ -225,14 +225,6 @@ class InputManager {
     cv.addEventListener('touchend', () => { active = false; }, { passive: true });
   }
   _bindButtons() {
-    const bind = (id, dir) => {
-      const el = $(id);
-      if (!el) return;
-      el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.requestMove(dir); });
-    };
-    bind('btnLeft', -1); bind('btnRight', 1);
-    const steer = $('steer');
-    if (steer) steer.addEventListener('input', () => this.game.requestLane(+steer.value));
     const holdPedal = (id, which) => {
       const el = $(id);
       if (!el) return;
@@ -242,6 +234,44 @@ class InputManager {
       el.addEventListener('pointercancel', () => this.game.setPedal(which, false));
     };
     holdPedal('btnGas', 'gas'); holdPedal('btnBrake', 'brake');
+    // joystick: sideways notches shift lanes, up = gas, down = brake
+    const base = $('joyBase'), knob = $('joyKnob');
+    if (base && knob) {
+      const R = 38;
+      let active = false, pid = null, cx = 0, cy = 0, jx = 0, jy = 0, timer = 0;
+      const paint = () => { knob.style.transform = 'translate(' + jx + 'px,' + jy + 'px)'; };
+      const stop = () => {
+        active = false; pid = null; jx = 0; jy = 0;
+        knob.style.transition = 'transform .15s ease-out'; paint();
+        this.game.setPedal('gas', false); this.game.setPedal('brake', false);
+        if (timer) { clearInterval(timer); timer = 0; }
+      };
+      base.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        active = true; pid = e.pointerId;
+        const r = base.getBoundingClientRect();
+        cx = r.left + r.width / 2; cy = r.top + r.height / 2;
+        knob.style.transition = 'none';
+        try { base.setPointerCapture(pid); } catch {}
+        this.game.audio.ensure();
+        if (!timer) timer = setInterval(() => {
+          if (!active) return;
+          if (jx > 15) this.game.requestMove(1);
+          else if (jx < -15) this.game.requestMove(-1);
+          this.game.setPedal('gas', jy < -20);
+          this.game.setPedal('brake', jy > 20);
+        }, 100);
+      });
+      base.addEventListener('pointermove', (e) => {
+        if (!active || e.pointerId !== pid) return;
+        let dx = e.clientX - cx, dy = e.clientY - cy;
+        const m = Math.hypot(dx, dy);
+        if (m > R) { dx = dx / m * R; dy = dy / m * R; }
+        jx = dx; jy = dy; paint();
+      });
+      base.addEventListener('pointerup', stop);
+      base.addEventListener('pointercancel', stop);
+    }
   }
 }
 
@@ -658,7 +688,10 @@ class RemoteView {
       const x = game.laneX(laneF);
       const y = game.player.y - v.dy - 190;
       if (y < -80 || y > game.H + 80) return;
+      // rivals are ghosts: clearly see-through so they never read as a pile-up
+      ctx.save(); ctx.globalAlpha = 0.55;
       drawCar(ctx, v.style, x, y, 0, game.elapsed);
+      ctx.restore();
       const nm = String(p.n || 'سواق').slice(0, 12);
       ctx.save(); ctx.translate(x, y - 56); ctx.rotate(-0.03);
       ctx.font = 'bold 12px "El Messiri", sans-serif';
@@ -1032,20 +1065,7 @@ class Game {
     if (this.player.tryMove(dir)) {
       this.audio.lane();
       this.parts.dust(this.player.x, this.player.y + 30, 4);
-      this._syncSteer();
     }
-  }
-  requestLane(n) {
-    if (this.state !== 'racing' || !this.player || this.paused) return;
-    if (this.player.tryLane(n)) {
-      this.audio.lane();
-      this.parts.dust(this.player.x, this.player.y + 30, 4);
-      this._syncSteer();
-    } else this._syncSteer(); // snap slider back if the move was rejected
-  }
-  _syncSteer() {
-    const s = $('steer');
-    if (s && this.player) s.value = String(Math.round(this.player.lane));
   }
   start(nick) {
     this.audio.ensure(); this.audio.click(); this.audio.startJingle(); this.audio.startEngine();
@@ -1061,9 +1081,7 @@ class Game {
     this.player.y = this.H - CFG.playerY;
     $('lobby').classList.add('hidden'); $('gameover').classList.add('hidden');
     $('hud').classList.remove('hidden'); $('liveTag').classList.remove('hidden');
-    $('touchControls').classList.remove('hidden'); // slider + buttons on all screens
-    $('pedals').classList.remove('hidden');
-    this._syncSteer();
+    $('touchControls').classList.remove('hidden'); // joystick deck on all screens
     this.bigMsg('السباق بدأ!');
   }
   toLobby() {
@@ -1072,7 +1090,7 @@ class Game {
     this.net.leaveRace();
     this.player = null;
     $('gameover').classList.add('hidden'); $('lobby').classList.remove('hidden');
-    $('hud').classList.add('hidden'); $('touchControls').classList.add('hidden'); $('pedals').classList.add('hidden');
+    $('hud').classList.add('hidden'); $('touchControls').classList.add('hidden');
     $('lobbyBest').textContent = ar(this.best);
   }
   crash() {
@@ -1102,7 +1120,7 @@ class Game {
     $('overKicker').textContent = 'خبطت يا معلم…';
     $('overTitle').textContent = isRec ? 'رقم جديد! عاش!' : (s > 1500 ? 'سواقة معلمين!' : 'المرة الجاية أحسن!');
     $('gameover').classList.remove('hidden');
-    $('touchControls').classList.add('hidden'); $('pedals').classList.add('hidden');
+    $('touchControls').classList.add('hidden');
     this.net.leaveRace();
     this.net.submitScore(p.score, p.dist).then(() => UI.refreshBoards()).catch(() => {});
   }
@@ -1269,10 +1287,8 @@ class Game {
       ctx.fillText('ج', 0.5, 4);
       ctx.restore();
     }
-    // remotes first (ghosts, slightly transparent), then solid traffic over them
-    ctx.save(); ctx.globalAlpha = 0.92;
+    // remotes first (ghosts), then solid traffic over them
     this.remoteView.draw(ctx, this);
-    ctx.restore();
     // traffic — ok/ prototype cars
     for (const c of this.traffic.list) {
       const x = this.laneCenters[c.lane] + Math.sin(c.wob) * 1.5;
