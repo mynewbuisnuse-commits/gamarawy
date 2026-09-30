@@ -186,7 +186,8 @@ class InputManager {
   }
   _isTyping() {
     const a = document.activeElement;
-    return a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
+    // range slider is a game control — arrows still drive while it's focused
+    return a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && a.type !== 'range'));
   }
   _onKey(e) {
     if (this._isTyping()) return; // don't hijack nickname field
@@ -219,6 +220,8 @@ class InputManager {
       el.addEventListener('pointerdown', (e) => { e.preventDefault(); this.game.requestMove(dir); });
     };
     bind('btnLeft', -1); bind('btnRight', 1);
+    const steer = $('steer');
+    if (steer) steer.addEventListener('input', () => this.game.requestLane(+steer.value));
   }
 }
 
@@ -537,6 +540,19 @@ class TrafficManager {
       c.wob += dt * 2;
       if (c.nearLock > 0) c.nearLock -= dt;
     }
+    // car-following: a faster car never ghosts through a slower one
+    // in the same lane — it queues up behind it instead
+    for (let l = 0; l < this.lanes; l++) {
+      const inLane = this.list.filter((c) => c.lane === l).sort((a, b) => a.y - b.y);
+      let ahead = null;
+      for (const c of inLane) {
+        if (ahead) {
+          const gap = (c.style.h + ahead.style.h) / 2 + 26;
+          if (c.y - ahead.y < gap) c.y = ahead.y + gap;
+        }
+        ahead = c;
+      }
+    }
     // cull
     for (let i = this.list.length - 1; i >= 0; i--) {
       const c = this.list[i];
@@ -580,10 +596,10 @@ class Player {
     this.invuln = CFG.invulnTime;
     this.moveCool = 0;
   }
-  tryMove(dir) {
-    if (!this.alive || this.moveCool > 0) return false;
-    const nl = clamp(Math.round(this.lane) + dir, 0, CFG.lanes - 1);
-    if (nl === this.lane) return false;
+  tryMove(dir) { return this.tryLane(Math.round(this.lane) + dir); }
+  tryLane(nl) {
+    nl = clamp(nl, 0, CFG.lanes - 1);
+    if (!this.alive || this.moveCool > 0 || nl === this.lane) return false;
     this.lane = nl; this.moveCool = CFG.laneCooldown;
     return true;
   }
@@ -991,7 +1007,20 @@ class Game {
     if (this.player.tryMove(dir)) {
       this.audio.lane();
       this.parts.dust(this.player.x, this.player.y + 30, 4);
+      this._syncSteer();
     }
+  }
+  requestLane(n) {
+    if (this.state !== 'racing' || !this.player || this.paused) return;
+    if (this.player.tryLane(n)) {
+      this.audio.lane();
+      this.parts.dust(this.player.x, this.player.y + 30, 4);
+      this._syncSteer();
+    } else this._syncSteer(); // snap slider back if the move was rejected
+  }
+  _syncSteer() {
+    const s = $('steer');
+    if (s && this.player) s.value = String(Math.round(this.player.lane));
   }
   start(nick) {
     this.audio.ensure(); this.audio.click(); this.audio.startJingle(); this.audio.startEngine();
@@ -1007,6 +1036,7 @@ class Game {
     $('lobby').classList.add('hidden'); $('gameover').classList.add('hidden');
     $('hud').classList.remove('hidden'); $('liveTag').classList.remove('hidden');
     if (window.innerWidth < 700 || 'ontouchstart' in window) $('touchControls').classList.remove('hidden');
+    this._syncSteer();
     this.bigMsg('السباق بدأ!');
   }
   toLobby() {

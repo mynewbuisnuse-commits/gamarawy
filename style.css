@@ -132,10 +132,20 @@ body{
 #touchControls{position:absolute; bottom:12px; right:12px; left:12px; display:flex; justify-content:space-between; z-index:6; direction:ltr}
 #touchControls.hidden{display:none}
 #touchControls button{
-  width:86px; height:72px; font-size:26px; cursor:pointer; color:var(--ink);
+  width:72px; height:64px; font-size:24px; cursor:pointer; color:var(--ink);
   background:rgba(246,236,212,.92); border:3px solid var(--ink);
   box-shadow:3px 4px 0 var(--ink); display:flex; flex-direction:column; align-items:center; justify-content:center;
+  flex:none;
 }
+#steer{
+  flex:1; appearance:none; -webkit-appearance:none; background:transparent;
+  height:48px; margin:0 4px; cursor:grab; min-width:0;
+}
+#steer:active{cursor:grabbing}
+#steer::-webkit-slider-runnable-track{height:12px; background:var(--paper); border:3px solid var(--ink); border-radius:12px; box-shadow:2px 2px 0 var(--ink)}
+#steer::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:34px; height:34px; margin-top:-14px; background:var(--terra); border:3px solid var(--ink); border-radius:50% 45% 55% 50%/50% 55% 45% 55%; box-shadow:2px 2px 0 var(--ink)}
+#steer::-moz-range-track{height:8px; background:var(--paper); border:3px solid var(--ink); border-radius:12px}
+#steer::-moz-range-thumb{width:28px; height:28px; background:var(--terra); border:3px solid var(--ink); border-radius:50% 45% 55% 50%/50% 55% 45% 55%}
 #btnLeft{border-radius:50% 20% 50% 20%/20% 50% 20% 50%}
 #btnRight{border-radius:20% 50% 20% 50%/50% 20% 50% 20%}
 #touchControls small{font-size:12px; font-family:"El Messiri"}
