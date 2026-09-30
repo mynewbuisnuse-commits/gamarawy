@@ -3,29 +3,32 @@
    palette: ورق + حبر + أزرق عربية + تراكوتا + طحيني تاكسي
    ============================================================ */
 :root{
-  --paper:#f6ecd4;
-  --paper2:#efe0bd;
+  --paper:#f7eed6;
+  --paper2:#f0e1bd;
   --paper3:#e7d3a6;
   --ink:#2a2018;
-  --ink-soft:#4d4132;
+  --ink-soft:#5a4c38;
   --blue:#2e7ab8;
   --blue-d:#1d4e78;
   --terra:#c96f3b;
-  --terra-d:#9c4e24;
+  --terra-d:#96502a;
   --taxi:#e9b44c;
   --teal:#2f8f83;
-  --red:#c94f43;
+  --red:#c0574a;
   --olive:#7a8450;
   --shadow: 3px 4px 0 rgba(42,32,24,.9);
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+::selection{background:var(--taxi); color:var(--ink)}
 html,body{margin:0;padding:0}
 body{
   font-family:"El Messiri", "Cairo", system-ui, sans-serif;
   background:
+    radial-gradient(110px 70px at 12% 8%, rgba(255,250,235,.55), transparent 70%),
+    radial-gradient(150px 110px at 88% 90%, rgba(150,80,42,.14), transparent 70%),
     radial-gradient(circle at 15% 10%, #e8d5a8 0 90px, transparent 91px),
     radial-gradient(circle at 88% 88%, #dfc89a 0 120px, transparent 121px),
-    repeating-linear-gradient(-4deg, transparent 0 26px, rgba(42,32,24,.028) 26px 27px),
+    repeating-linear-gradient(-4deg, transparent 0 26px, rgba(42,32,24,.030) 26px 27px),
     #d9c69c;
   color:var(--ink);
   min-height:100vh;
@@ -67,10 +70,11 @@ body{
 .stage-outer{display:flex; flex-direction:column; align-items:center}
 .stage-frame{
   position:relative; width:100%; max-width:480px;
-  background:#b99c6e; border:3px solid var(--ink);
+  background:linear-gradient(160deg, #c2a273 0%, #b99c6e 45%, #a9885c 100%);
+  border:3px solid var(--ink);
   border-radius:18px 22px 20px 24px;
   padding:10px; transform:rotate(.4deg);
-  box-shadow:5px 7px 0 rgba(42,32,24,.85);
+  box-shadow:5px 7px 0 rgba(42,32,24,.85), inset 0 1px 0 rgba(255,250,235,.5);
 }
 .stage-frame::before{
   content:""; position:absolute; inset:6px; pointer-events:none;
@@ -93,7 +97,7 @@ body{
 .hud-card:nth-child(2){border-radius:4px 14px 4px 14px; transform:rotate(.8deg)}
 .hud-card:nth-child(3){border-radius:12px 12px 4px 14px; transform:rotate(-.6deg); background:var(--taxi)}
 .hud-label{display:block; font-size:11px; color:var(--ink-soft)}
-.hud-val{display:block; font-size:19px; font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums}
+.hud-val{display:block; font-size:19px; font-weight:700; line-height:1.25; font-variant-numeric:tabular-nums; text-decoration:underline wavy rgba(42,32,24,.35) 1.5px; text-underline-offset:3px}
 
 #liveTag{
   position:absolute; top:64px; right:12px; z-index:5;
@@ -155,8 +159,8 @@ body{
   border:2px solid var(--ink); padding:2px 10px; border-radius:20px; transform:rotate(3deg);
 }
 .kicker{margin:6px 0 0; font-size:13px; color:var(--terra-d); font-weight:700}
-.title{font-family:"Aref Ruqaa",serif; font-size:44px; line-height:1.15; margin:2px 0 6px}
-.title-sm{font-family:"Aref Ruqaa",serif; font-size:32px; margin:2px 0 8px; line-height:1.2}
+.title{font-family:"Aref Ruqaa",serif; font-size:44px; line-height:1.15; margin:2px 0 6px; text-shadow:2px 2px 0 rgba(201,111,59,.25)}
+.title-sm{font-family:"Aref Ruqaa",serif; font-size:32px; margin:2px 0 8px; line-height:1.2; text-shadow:2px 2px 0 rgba(201,111,59,.25)}
 .subtitle{margin:0 0 8px; color:var(--ink-soft); font-size:15px; line-height:1.7}
 .road-doodle{margin:2px 0 6px; opacity:.95}
 .nick-label{display:block; font-size:13px; font-weight:700; margin:6px 0 4px}
@@ -165,19 +169,27 @@ body{
   background:#fffdf3; border:3px solid var(--ink); color:var(--ink);
   border-radius:12px 4px 12px 4px; outline:none;
 }
-#nickInput:focus{background:#fff; box-shadow:3px 3px 0 var(--taxi)}
+#nickInput:focus{background:#fff; box-shadow:3px 3px 0 var(--taxi); border-color:var(--ink)}
+#nickInput::placeholder{color:#a08c68}
 .car-pick{display:flex; align-items:center; gap:8px; margin:10px 0 4px; font-size:14px; font-weight:700}
 .car-colors{display:flex; gap:8px}
 .car-dot{width:32px; height:32px; border:3px solid var(--ink); border-radius:50% 45% 55% 50%/50% 55% 45% 55%; cursor:pointer; box-shadow:1px 2px 0 var(--ink)}
 .car-dot.sel{outline:3px solid var(--ink); outline-offset:2px; transform:scale(1.1) rotate(-6deg)}
 .btn-yalla{
   width:100%; margin-top:10px; font-family:"Aref Ruqaa",serif; font-size:26px; cursor:pointer;
-  background:var(--terra); color:#fffdf3; border:3px solid var(--ink);
+  background:linear-gradient(180deg, #d67e45 0%, var(--terra) 60%, #b25f31 100%);
+  color:#fffdf3; border:3px solid var(--ink);
   border-radius:16px 6px 18px 6px/6px 18px 6px 16px;
   padding:8px; box-shadow:3px 4px 0 var(--ink); transform:rotate(-.7deg);
-  text-shadow:1px 1px 0 rgba(0,0,0,.3);
+  text-shadow:1px 2px 0 rgba(42,20,8,.55);
+  position:relative;
 }
-.btn-yalla:hover{background:#d67e45}
+.btn-yalla::after{
+  content:""; position:absolute; inset:4px; pointer-events:none;
+  border:1.5px dashed rgba(255,253,243,.55); border-radius:12px 4px 14px 4px;
+}
+.btn-yalla:hover{background:linear-gradient(180deg, #de8a52 0%, #d67e45 60%, #b25f31 100%); animation:wob .3s ease-in-out}
+@keyframes wob{25%{transform:rotate(-.7deg) scale(1.015)}75%{transform:rotate(-1.1deg) scale(1.01)}}
 .btn-yalla:active{transform:translate(2px,3px); box-shadow:none}
 .btn-ghost{
   width:100%; margin-top:8px; font-family:inherit; font-size:15px; cursor:pointer;
