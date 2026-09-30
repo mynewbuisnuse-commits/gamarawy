@@ -47,12 +47,12 @@ const CFG = {
 const CAR_COLORS = ['#2e7ab8', '#c94f43', '#2f8f83', '#e9b44c', '#7a8450', '#8d4a7a'];
 
 const TRAFFIC_KINDS = [
-  { type: 'hatch',   color: '#c94f43', w: 44, h: 78, vMin: 130, vMax: 200 },
-  { type: 'sedan',   color: '#7a8450', w: 46, h: 86, vMin: 120, vMax: 190 },
-  { type: 'taxi',    color: '#e9b44c', w: 46, h: 86, vMin: 150, vMax: 220 },
-  { type: 'compact', color: '#8d99ae', w: 42, h: 74, vMin: 140, vMax: 210 },
-  { type: 'pickup',  color: '#9c4e24', w: 48, h: 92, vMin: 110, vMax: 170 },
-  { type: 'van',     color: '#efe0bd', w: 50, h: 96, vMin: 100, vMax: 160 },
+  { type: 'hatch',   color: '#c94f43', w: 50, h: 84, vMin: 130, vMax: 200 },
+  { type: 'sedan',   color: '#7a8450', w: 52, h: 92, vMin: 120, vMax: 190 },
+  { type: 'taxi',    color: '#e9b44c', w: 52, h: 92, vMin: 150, vMax: 220 },
+  { type: 'compact', color: '#8d99ae', w: 48, h: 80, vMin: 140, vMax: 210 },
+  { type: 'pickup',  color: '#9c4e24', w: 54, h: 98, vMin: 110, vMax: 170 },
+  { type: 'van',     color: '#efe0bd', w: 56, h: 102, vMin: 100, vMax: 160 },
 ];
 
 const SHOPS = ['فول عم فوزي', 'كشري التحرير', 'قهوة عبدو', 'فرن بلدي', 'عصير قصب', 'مكتبة النجاح', 'حلاق النجوم', 'بقالة الأمانة'];
@@ -454,9 +454,22 @@ function drawCar(ctx, o) {
   const j = o._j || (o._j = wobbles(seed));
   const type = o.type || 'sedan';
   const boxy = (type === 'van' || type === 'pickup');
+  const flip = !!o.flip; // oncoming traffic faces the player (headlights toward you)
   ctx.save();
   ctx.translate(o.x, o.y);
   if (o.tilt) ctx.rotate(o.tilt);
+  if (flip) ctx.rotate(Math.PI);
+  // readable text even when the car is flipped
+  const inkText = (txt, x, y, font) => {
+    ctx.save(); ctx.translate(x, y); if (flip) ctx.rotate(Math.PI);
+    ctx.fillStyle = '#2a2018'; ctx.font = font; ctx.textAlign = 'center';
+    ctx.fillText(txt, 0, 0); ctx.restore();
+  };
+  const paperText = (txt, x, y, font) => {
+    ctx.save(); ctx.translate(x, y); if (flip) ctx.rotate(Math.PI);
+    ctx.fillStyle = '#f6ecd4'; ctx.font = font; ctx.textAlign = 'center';
+    ctx.fillText(txt, 0, 0); ctx.restore();
+  };
   // --- ground shadow: soft + hard offset for ink feel
   ctx.fillStyle = 'rgba(30,23,16,.22)';
   ctx.beginPath(); ctx.ellipse(4, h / 2 + 3, w / 2 + 4, 9, 0, 0, 6.2832); ctx.fill();
@@ -576,8 +589,7 @@ function drawCar(ctx, o) {
     // roof sign with tiny dome light
     ctx.fillStyle = '#f6ecd4'; ctx.fillRect(-12, -h * 0.20, 24, 10);
     setInk(ctx, 2); ctx.strokeRect(-12, -h * 0.20, 24, 10);
-    ctx.fillStyle = '#2a2018'; ctx.font = 'bold 7.5px "El Messiri",sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('تاكسي', 0, -h * 0.20 + 7.5);
+    inkText('تاكسي', 0, -h * 0.20 + 7.5, 'bold 7.5px "El Messiri",sans-serif');
   } else if (type === 'pickup') {
     // open bed + crates + spare
     ctx.fillStyle = '#6b4c2c'; ctx.fillRect(-w / 2 + 7, h * 0.14, w - 14, 16);
@@ -593,8 +605,7 @@ function drawCar(ctx, o) {
   } else if (type === 'van') {
     ctx.strokeStyle = 'rgba(42,32,24,.5)'; ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.moveTo(w / 2 - 6, -h * 0.1); ctx.lineTo(w / 2 - 6, h * 0.32); ctx.stroke();
-    ctx.fillStyle = '#2a2018'; ctx.font = 'bold 9px "El Messiri",sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('توصيل', 0, h * 0.10);
+    inkText('توصيل', 0, h * 0.10, 'bold 9px "El Messiri",sans-serif');
     // rear wiper hint
     ctx.strokeStyle = 'rgba(42,32,24,.4)'; ctx.lineWidth = 1.4;
     ctx.beginPath(); ctx.moveTo(0, h * 0.30); ctx.lineTo(8, h * 0.24); ctx.stroke();
@@ -623,6 +634,10 @@ function drawCar(ctx, o) {
   }
 
   if (o.isPlayer) {
+    // twin racing stripes over the roof
+    ctx.fillStyle = 'rgba(246,236,212,.92)';
+    ctx.fillRect(-6, -h * 0.045, 4.5, h * 0.23);
+    ctx.fillRect(1.5, -h * 0.045, 4.5, h * 0.23);
     // racing number + flag + antenna
     ctx.fillStyle = '#f6ecd4';
     ctx.beginPath(); ctx.arc(w / 2 - 11, h * 0.30, 8.5, 0, 6.2832); ctx.fill();
@@ -667,6 +682,23 @@ function drawCar(ctx, o) {
   setInk(ctx, 1.4);
   ctx.strokeRect(-w / 2 + 4, h / 2 - 7, 9, 4.5);
   ctx.strokeRect(w / 2 - 13, h / 2 - 7, 9, 4.5);
+  // front grille between headlights
+  ctx.fillStyle = '#241c12';
+  ctx.fillRect(-9, -h / 2 + 1, 18, 5);
+  setInk(ctx, 1.4); ctx.strokeRect(-9, -h / 2 + 1, 18, 5);
+  ctx.strokeStyle = 'rgba(246,236,212,.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-7, -h / 2 + 3.5); ctx.lineTo(7, -h / 2 + 3.5); ctx.stroke();
+  // rear license plate (reads correctly thanks to flip-aware text)
+  ctx.fillStyle = '#f6ecd4';
+  ctx.fillRect(-9, h / 2 - 13, 18, 6);
+  setInk(ctx, 1.2); ctx.strokeRect(-9, h / 2 - 13, 18, 6);
+  ctx.save(); ctx.translate(0, h / 2 - 8.2); if (flip) ctx.rotate(Math.PI);
+  ctx.fillStyle = '#2a2018'; ctx.font = 'bold 5.5px "El Messiri",sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('مصر', 0, 0); ctx.restore();
+  // exhaust pipe, rear corner
+  ctx.fillStyle = '#1e1710';
+  ctx.fillRect(w / 2 - 12, h / 2 - 3, 6, 4);
+  setInk(ctx, 1.2); ctx.strokeRect(w / 2 - 12, h / 2 - 3, 6, 4);
   ctx.restore();
 }
 
@@ -791,7 +823,7 @@ class RemoteView {
       const nm0 = String(p.n || 'سواق');
       let hh = 0; for (let i = 0; i < nm0.length; i++) hh = (hh * 31 + nm0.charCodeAt(i)) | 0;
       const types = ['sedan', 'hatch', 'compact', 'taxi'];
-      drawCar(ctx, { x, y, w: 44, h: 80, color: p.c || '#c94f43', type: types[Math.abs(hh) % types.length], seed: Math.abs(hh) + 11, tilt: 0, spin: game.wheel });
+      drawCar(ctx, { x, y, w: 48, h: 86, color: p.c || '#c94f43', type: types[Math.abs(hh) % types.length], seed: Math.abs(hh) + 11, tilt: 0, spin: game.wheel });
       const nm = String(p.n || 'سواق').slice(0, 12);
       ctx.save(); ctx.translate(x, y - 56); ctx.rotate(-0.03);
       ctx.font = 'bold 12px "El Messiri", sans-serif';
@@ -1305,7 +1337,7 @@ class Game {
         }
       }
       // traffic interaction
-      const pw = 42, ph = 76;
+      const pw = 46, ph = 82;
       for (const c of this.traffic.list) {
         const tx = this.laneCenters[c.lane];
         const dx = Math.abs(tx - p.x), dy = Math.abs(c.y - p.y);
@@ -1375,10 +1407,10 @@ class Game {
       ctx.fillText('ج', 0.5, 4);
       ctx.restore();
     }
-    // traffic
+    // traffic — oncoming, facing the player (headlights toward you)
     for (const c of this.traffic.list) {
       const x = this.laneCenters[c.lane] + Math.sin(c.wob) * 1.5;
-      drawCar(ctx, { x, y: c.y, w: c.w, h: c.h, color: c.color, type: c.type, seed: c.seed, tilt: Math.sin(c.wob) * 0.02, spin: this.wheel, _j: c._j || (c._j = wobbles(c.seed)) });
+      drawCar(ctx, { x, y: c.y, w: c.w, h: c.h, color: c.color, type: c.type, seed: c.seed, tilt: Math.sin(c.wob) * 0.02, spin: this.wheel, flip: true, _j: c._j || (c._j = wobbles(c.seed)) });
     }
     this.remoteView.draw(ctx, this);
     // player
@@ -1394,7 +1426,7 @@ class Game {
         ctx.translate(-p.x, -(p.y + Math.sin(this.bounce) * 1.6));
         drawCar(ctx, {
           x: p.x, y: p.y + Math.sin(this.bounce) * 1.6,
-          w: 46, h: 84, color: p.color, type: 'sedan',
+          w: 50, h: 90, color: p.color, type: 'sedan',
           seed: p.seed, tilt: p.tilt, spin: this.wheel, isPlayer: true,
         });
         ctx.restore();
