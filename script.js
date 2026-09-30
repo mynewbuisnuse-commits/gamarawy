@@ -1023,16 +1023,17 @@ class World {
     ctx.fillStyle = '#dcc49a';
     ctx.fillRect(roadL - sw, 0, sw, H); ctx.fillRect(roadR, 0, sw, H);
     ctx.strokeStyle = 'rgba(42,32,24,.28)'; ctx.lineWidth = 1.4;
-    for (let yy = -((g.scroll * 0.999) % 26); yy < H; yy += 26) {
+    for (let yy = -26 + ((g.scroll * 0.999) % 26); yy < H; yy += 26) {
       ctx.beginPath(); ctx.moveTo(roadL - sw, yy); ctx.lineTo(roadL, yy); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(roadR, yy); ctx.lineTo(roadR + sw, yy); ctx.stroke();
     }
     ctx.strokeStyle = 'rgba(42,32,24,.4)'; ctx.lineWidth = 2;
     ctx.strokeRect(roadL - sw, -4, sw, H + 8); ctx.strokeRect(roadR, -4, sw, H + 8);
-    // weathered curbs (faded paint, chips)
-    const bh = 30, off = g.scroll % (bh * 2);
-    for (let y = -off - bh; y < H + bh; y += bh) {
-      const idx = Math.floor((y + g.scroll) / bh);
+    // weathered curbs (faded paint, chips) — flowing downward as you drive up
+    const bh = 30;
+    const coff = g.scroll % bh;
+    for (let y = -bh + coff; y < H + bh; y += bh) {
+      const idx = Math.floor((y - g.scroll) / bh);
       const isRed = ((idx % 2) + 2) % 2 === 1;
       ctx.fillStyle = isRed ? '#c0574a' : '#efe3c2';
       const wob = (hash01(idx * 3 + 11) - 0.5) * 3;
@@ -1050,7 +1051,7 @@ class World {
     ctx.fillStyle = 'rgba(255,255,255,.045)'; ctx.fillRect(roadL, 0, roadW * 0.3, H);
     ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(roadL + roadW * 0.72, 0, roadW * 0.28, H);
     for (let k = 0; k < 5; k++) {
-      const py = ((hash01(k * 77) * 900 - g.scroll) % (H + 200) + H + 200) % (H + 200) - 100;
+      const py = ((hash01(k * 77) * 900 + g.scroll) % (H + 200) + H + 200) % (H + 200) - 100;
       const px = roadL + hash01(k * 31) * roadW * 0.6;
       const pw2 = 34 + hash01(k) * 30, ph2 = 22 + hash01(k * 3) * 18;
       ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(px, py, pw2, ph2);
@@ -1058,7 +1059,7 @@ class World {
     }
     ctx.fillStyle = 'rgba(20,16,12,.22)';
     for (let k = 0; k < 3; k++) {
-      const oy = ((hash01(k * 51 + 9) * 900 - g.scroll) % (H + 120) + H + 120) % (H + 120) - 60;
+      const oy = ((hash01(k * 51 + 9) * 900 + g.scroll) % (H + 120) + H + 120) % (H + 120) - 60;
       ctx.beginPath();
       ctx.ellipse(roadL + roadW * (0.25 + k * 0.22), oy, 12, 6, 0.3 * k, 0, 6.2832);
       ctx.fill();
@@ -1078,13 +1079,12 @@ class World {
     // dashes — stable per dash index so they don't jitter
     ctx.fillStyle = '#ece0bd';
     const dashH = 34, gap = 30, cyc = dashH + gap;
-    const baseIdx = Math.floor(g.scroll / cyc);
+    const dMin = Math.floor((-g.scroll - cyc) / cyc);
+    const dMax = Math.ceil((H - g.scroll) / cyc) + 1;
     for (let l = 1; l < CFG.lanes; l++) {
       const x = roadL + (roadW * l) / CFG.lanes;
-      const n = Math.ceil(H / cyc) + 2;
-      for (let k = 0; k < n; k++) {
-        const idx = baseIdx + k;
-        const y = idx * cyc - g.scroll;
+      for (let idx = dMin; idx <= dMax; idx++) {
+        const y = idx * cyc + g.scroll;
         if (y < -dashH || y > H + dashH) continue;
         const wob = (hash01(idx * 13 + l * 101) - 0.5) * 4;
         const hh = dashH + (hash01(idx * 7 + l) - 0.5) * 6;
@@ -1095,8 +1095,8 @@ class World {
       }
     }
     ctx.globalAlpha = 1;
-    // worn painted arrow
-    const ay = H - (g.scroll % 520) - 60;
+    // worn painted arrow, drifting down with the road
+    const ay = -60 + (g.scroll % (H + 120));
     ctx.save(); ctx.globalAlpha = 0.42; ctx.fillStyle = '#ece0bd';
     ctx.translate(roadL + roadW / 2, ay);
     ctx.beginPath();
@@ -1106,10 +1106,11 @@ class World {
   }
   _blocks(ctx, W, H, roadL, roadR) {
     const segH = 230;
-    const start = Math.floor(this.g.scroll / segH) - 1;
-    const end = start + Math.ceil(H / segH) + 3;
-    for (let i = start; i < end; i++) {
-      const y = i * segH - this.g.scroll;
+    const sc = this.g.scroll;
+    const iMin = Math.floor((-sc - segH) / segH);
+    const iMax = Math.ceil((H - sc) / segH) + 1;
+    for (let i = iMin; i <= iMax; i++) {
+      const y = i * segH + sc;
       this._side(ctx, 0, roadL, y, segH, i, -1);
       this._side(ctx, roadR, W, y, segH, i, 1);
     }
