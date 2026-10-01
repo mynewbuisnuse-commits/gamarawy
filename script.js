@@ -617,6 +617,8 @@ function rShade(hex, amt) {
 function drawRearCar(ctx, x, y, w, h, color, type, seed, phase) {
   const tall = (type === 'van' || type === 'microbus');
   const bx = x - w / 2, by = y - h / 2;
+  ctx.fillStyle = 'rgba(30,23,16,.18)';
+  ctx.beginPath(); ctx.ellipse(x, y + h / 2 + 1, w * 0.62, h * 0.09, 0, 0, 6.2832); ctx.fill();
   ctx.fillStyle = 'rgba(30,23,16,.30)';
   ctx.beginPath(); ctx.ellipse(x + 2, y + h / 2 - 2, w / 2, Math.max(2, h * 0.07), 0, 0, 6.2832); ctx.fill();
   // wheels peeking at the bottom corners
@@ -1169,24 +1171,40 @@ class HoodView {
     ctx.fillStyle = '#b99a76';
     let bx0 = -20;
     for (let i = 0; i < 9; i++) {
-      const bw = 40 + hash01(i * 7 + 3) * 50, bh = 18 + hash01(i * 13) * 26;
+      const bw = 40 + hash01(i * 7 + 3) * 50, bh = 26 + hash01(i * 13) * 24;
       ctx.fillRect(bx0, HOR - bh, bw, bh);
       if (hash01(i * 3) > 0.5) {
-        ctx.beginPath(); ctx.arc(bx0 + bw / 2, HOR - bh, bw * 0.28, 3.1416, 0); ctx.fill();
+        // dome centered on its own building
+        ctx.beginPath(); ctx.arc(bx0 + bw / 2, HOR - bh + 2, bw * 0.26, 3.1416, 0); ctx.fill();
       } else {
-        ctx.fillRect(bx0 + bw * 0.4, HOR - bh - 26, 7, 30);
-        ctx.beginPath(); ctx.arc(bx0 + bw * 0.4 + 3.5, HOR - bh - 28, 6, 0, 6.2832); ctx.fill();
+        // minaret growing out of the building's right corner
+        ctx.fillRect(bx0 + bw - 12, HOR - bh - 26, 7, 28);
+        ctx.beginPath(); ctx.arc(bx0 + bw - 8.5, HOR - bh - 28, 6, 0, 6.2832); ctx.fill();
       }
       bx0 += bw + 8;
       if (bx0 > W + 20) break;
     }
     // sand base + road trapezoid
     ctx.fillStyle = '#e3cfa1'; ctx.fillRect(0, HOR, W, H - HOR);
+    // sidewalk strips hugging the road (anchor everything beside it)
+    ctx.fillStyle = '#dcc49a';
+    ctx.beginPath();
+    ctx.moveTo(cx - halfB, H); ctx.lineTo(cx - 8, HOR);
+    ctx.lineTo(cx - 26, HOR); ctx.lineTo(cx - halfB - 46, H);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + halfB, H); ctx.lineTo(cx + 8, HOR);
+    ctx.lineTo(cx + 26, HOR); ctx.lineTo(cx + halfB + 46, H);
+    ctx.closePath(); ctx.fill();
+    // road trapezoid + solid edge lines for structure
     ctx.fillStyle = '#5e5b68';
     ctx.beginPath();
     ctx.moveTo(cx - halfB, H); ctx.lineTo(cx + halfB, H);
     ctx.lineTo(cx + 8, HOR); ctx.lineTo(cx - 8, HOR);
     ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(236,224,189,.55)'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(cx - halfB + 4, H); ctx.lineTo(cx - 6, HOR + 4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + halfB - 4, H); ctx.lineTo(cx + 6, HOR + 4); ctx.stroke();
     // scrolling lane dashes in perspective
     const DZ = 140, RANGE = 1120;
     ctx.lineCap = 'round';
@@ -1202,29 +1220,40 @@ class HoodView {
         ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
       }
     }
-    // roadside props rushing past
+    // roadside props rushing past (grounded with shadows, fading far away)
     for (let k = 0; k < 16; k++) {
       const z = (k * 150 + 40 + g.hoodDist) % 1200;
       if (z < 14) continue;
       const side = k % 2 ? 1 : -1;
       const off = side * (roadW / 2 + 26 + hash01(k * 3) * 30);
       const pr = this.proj(g, off, z);
+      ctx.save();
+      ctx.globalAlpha = clamp(1.25 - z / 550, 0.25, 1);
+      // contact shadow so nothing floats
+      ctx.fillStyle = 'rgba(60,40,20,.25)';
+      ctx.beginPath(); ctx.ellipse(pr.x, pr.y, 26 * pr.s + 4, 5 * pr.s + 1.5, 0, 0, 6.2832); ctx.fill();
       const kind = hash01(k * 11);
       if (kind < 0.4) {
         ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 4 * pr.s);
         ctx.beginPath(); ctx.moveTo(pr.x, pr.y); ctx.lineTo(pr.x, pr.y - 70 * pr.s); ctx.stroke();
       } else if (kind < 0.7) {
+        ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 2 * pr.s);
+        ctx.beginPath(); ctx.moveTo(pr.x, pr.y); ctx.lineTo(pr.x, pr.y - 14 * pr.s); ctx.stroke();
         ctx.fillStyle = '#6f7f46';
         ctx.beginPath(); ctx.arc(pr.x, pr.y - 26 * pr.s, 16 * pr.s, 0, 6.2832); ctx.fill();
-        ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 2 * pr.s); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(pr.x, pr.y); ctx.lineTo(pr.x, pr.y - 14 * pr.s); ctx.stroke();
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,.25)';
+        ctx.beginPath(); ctx.arc(pr.x - 5 * pr.s, pr.y - 31 * pr.s, 5 * pr.s, 0, 6.2832); ctx.fill();
       } else {
         const bw = 90 * pr.s, bh = 120 * pr.s;
-        ctx.fillStyle = '#dfc9a0';
+        ctx.fillStyle = '#d9b98f';
         ctx.fillRect(pr.x - bw / 2, pr.y - bh, bw, bh);
-        ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1, 2 * pr.s);
+        ctx.fillStyle = 'rgba(255,250,235,.25)';
+        ctx.fillRect(pr.x - bw / 2, pr.y - bh, bw * 0.3, bh);
+        ctx.strokeStyle = '#2a2018'; ctx.lineWidth = Math.max(1.2, 2.5 * pr.s);
         ctx.strokeRect(pr.x - bw / 2, pr.y - bh, bw, bh);
       }
+      ctx.restore();
     }
     if (p) {
       // traffic ahead (rear view, far drawn first)
@@ -1236,9 +1265,12 @@ class HoodView {
       items.sort((a, b) => b.z - a.z);
       for (const it of items) {
         const pr = this.proj(g, this.laneOff(g, it.c.lane), it.z);
-        const wpx = Math.max(8, it.c.style.w * pr.s * 3.4);
+        ctx.save();
+        ctx.globalAlpha = clamp(1.3 - it.z / 550, 0.3, 1);
+        const wpx = Math.max(8, it.c.style.w * pr.s * 3.0);
         const hpx = wpx * (it.c.style.h / it.c.style.w);
         drawRearCar(ctx, pr.x, pr.y - hpx / 2, wpx, hpx, it.c.style.color, it.c.type, it.c.style.seed, phase);
+        ctx.restore();
       }
       // whoosh when a car blasts past beside you
       const pl = Math.round(p.laneF);
@@ -1280,7 +1312,7 @@ class HoodView {
         const off = (g.laneCenters[l0] - (g.geom.roadL + roadW / 2)) + (i - l0) * (roadW / CFG.lanes);
         const pr = this.proj(g, off, z);
         ctx.save(); ctx.globalAlpha = 0.6;
-        const wpx = Math.max(8, 48 * pr.s * 3.4), hpx = wpx * 1.8;
+        const wpx = Math.max(8, 48 * pr.s * 3.0), hpx = wpx * 1.8;
         drawRearCar(ctx, pr.x, pr.y - hpx / 2, wpx, hpx, rp.c || '#c94f43', 'sedan', 7, phase);
         ctx.restore();
         const nm = String(rp.n || 'سواق').slice(0, 12);
@@ -1305,6 +1337,12 @@ class HoodView {
     ctx.lineTo(cx + 70, H - 120); ctx.lineTo(cx - 70, H - 120);
     ctx.closePath(); ctx.fill();
     rInk(ctx, 3); ctx.stroke();
+    // hood center ridge + wipers
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx, H - 4); ctx.lineTo(cx, H - 108); ctx.stroke();
+    ctx.strokeStyle = 'rgba(30,23,16,.6)'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(cx - 60, H - 96); ctx.lineTo(cx - 12, H - 116); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 60, H - 96); ctx.lineTo(cx + 12, H - 116); ctx.stroke();
     // dash panel + speed readout
     ctx.fillStyle = '#2e2620';
     ctx.fillRect(0, H - 64, W, 64);
@@ -1320,25 +1358,35 @@ class HoodView {
     ctx.save(); ctx.rotate(wang);
     rInk(ctx, 5);
     ctx.beginPath(); ctx.arc(0, 0, 44, 0, 6.2832); ctx.stroke();
-    ctx.strokeStyle = '#2a2018'; ctx.lineWidth = 7;
+    ctx.strokeStyle = '#c9bfae'; ctx.lineWidth = 7; ctx.lineCap = 'round';
     for (let si = 0; si < 3; si++) {
       const a = si * 2.094;
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 40, Math.sin(a) * 40); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 38, Math.sin(a) * 38); ctx.stroke();
     }
     ctx.fillStyle = pc;
     ctx.beginPath(); ctx.arc(0, 0, 13, 0, 6.2832); ctx.fill();
     rInk(ctx, 2.5); ctx.stroke();
     ctx.restore(); ctx.restore();
-    // A-pillars + rearview mirror
-    ctx.strokeStyle = '#241c12'; ctx.lineWidth = 16; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(6, -10); ctx.lineTo(64, H * 0.4); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(W - 6, -10); ctx.lineTo(W - 64, H * 0.4); ctx.stroke();
+    // A-pillars: slim tapered frames from roof down toward the dash
+    for (const sgn of [-1, 1]) {
+      ctx.fillStyle = '#241c12';
+      ctx.beginPath();
+      ctx.moveTo(cx + sgn * 168, -12);
+      ctx.lineTo(cx + sgn * 192, -12);
+      ctx.lineTo(cx + sgn * 116, H * 0.58);
+      ctx.lineTo(cx + sgn * 94, H * 0.58);
+      ctx.closePath(); ctx.fill();
+      rInk(ctx, 2); ctx.stroke();
+    }
+    // rearview mirror with a sliver of sky
     ctx.fillStyle = '#1d2733';
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(cx - 46, 14, 92, 26, 8);
-    else ctx.rect(cx - 46, 14, 92, 26);
+    if (ctx.roundRect) ctx.roundRect(cx - 40, 16, 80, 22, 7);
+    else ctx.rect(cx - 40, 16, 80, 22);
     ctx.fill();
     rInk(ctx, 2.5); ctx.stroke();
+    ctx.fillStyle = 'rgba(143,195,232,.55)';
+    ctx.fillRect(cx - 34, 19, 68, 7);
     // vignette
     const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.36, W / 2, H / 2, H * 0.75);
     vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(42,32,24,.20)');
